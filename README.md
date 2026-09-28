@@ -1,36 +1,50 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI Personal Knowledge Base
 
-## Getting Started
+A Next.js app for saving private knowledge and asking grounded questions with citations.
 
-First, run the development server:
+## Deadline Workflow
+
+Use the fast path while building the MVP:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
+pnpm run dev
+pnpm run quality:deadline
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Run the full gate before final delivery or merge:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+pnpm run quality
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Useful Commands
 
-## Learn More
+```bash
+pnpm run dev
+pnpm run lint
+pnpm run typecheck
+pnpm run test:core
+pnpm run test
+pnpm run build
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Local Providers
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Use the stub AI provider for local verification without OpenAI credits:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+AI_PROVIDER=stub
+```
 
-## Deploy on Vercel
+Use OpenAI only when checking provider behavior or production settings:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+AI_PROVIDER=openai
+OPENAI_API_KEY=...
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Scope
+
+The active deadline scope lives in [docs/scope/scope.md](docs/scope/scope.md).
+The original broader plan is preserved in [docs/scope/scope-original-plan.md](docs/scope/scope-original-plan.md).
