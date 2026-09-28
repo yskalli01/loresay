@@ -29,17 +29,18 @@ Skip new specs unless a decision is genuinely unclear. Skip broad verification p
 
 ## At A Glance
 
-| #   | Feature                    | Phase      | Status |
-| --- | -------------------------- | ---------- | ------ |
-| 1   | Foundations                | Foundation | done   |
-| 2   | Thin knowledge loop        | MVP        | done   |
-| 3   | Note capture and editing   | MVP        | done   |
-| 4   | Basic document ingestion   | MVP        | done   |
-| 5   | Citation and answer polish | MVP        | done   |
-| 6   | URL ingestion              | MVP        | done   |
-| 7   | Source organization        | MVP        | done   |
-| 8   | Source lifecycle           | MVP        | done   |
-| 9   | Workspace navigation       | MVP        | done   |
+| #   | Feature                    | Phase      | Status      |
+| --- | -------------------------- | ---------- | ----------- |
+| 1   | Foundations                | Foundation | done        |
+| 2   | Thin knowledge loop        | MVP        | done        |
+| 3   | Note capture and editing   | MVP        | done        |
+| 4   | Basic document ingestion   | MVP        | done        |
+| 5   | Citation and answer polish | MVP        | done        |
+| 6   | URL ingestion              | MVP        | done        |
+| 7   | Source organization        | MVP        | done        |
+| 8   | Source lifecycle           | MVP        | done        |
+| 9   | Workspace navigation       | MVP        | done        |
+| 10  | Privacy and data lifecycle | Post-MVP   | in-progress |
 
 ## Foundation
 
@@ -151,13 +152,31 @@ Split the crowded dashboard into focused workspace pages so each main feature ha
 - [x] Move capture, ingestion, organization, and chat controls out of the front page
 - [x] Add focused route render tests for the new navigation structure
 
+## Post MVP
+
+### 10. Privacy and data lifecycle · in-progress
+
+Let users take their data out and permanently purge archived sources without breaking citation history.
+
+**Done when:** a signed in user can export owned knowledge, purge an archived source, and trust that purged source text and vectors are no longer retrievable while old citation snapshots remain readable.
+
+Spec [0005](../specs/0005-privacy-data-lifecycle.md) · code in `src/app`, `src/application/knowledge`, `src/infrastructure/db`, and `src/presentation`.
+
+- [x] Design it (spec): [0005](../specs/0005-privacy-data-lifecycle.md)
+- [ ] Build it: /develop privacy and data lifecycle
+  - [ ] Export owned knowledge without raw embeddings, covers AC-1 and AC-2
+  - [ ] Purge archived sources through the repository lifecycle boundary, covers AC-3 through AC-5
+  - [ ] Exclude purged sources from all source, retry, edit, filter, and chat paths, covers AC-6 and AC-7
+  - [ ] Add accessible export and purge UI states, covers AC-8
+- [ ] Test it: /test privacy and data lifecycle
+- [ ] Verify it: /check verify privacy and data lifecycle
+
 ## Deferred
 
 These are intentionally outside the deadline path. Bring them back after the MVP is usable.
 
 - Connectors framework
 - Product analytics and error visibility
-- Advanced privacy controls, export, and lifecycle tooling
 - Advanced grounded answer diagnostics and feedback capture
 - Team workspaces
 - Billing and plans
