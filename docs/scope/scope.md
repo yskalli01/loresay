@@ -29,18 +29,18 @@ Skip new specs unless a decision is genuinely unclear. Skip broad verification p
 
 ## At A Glance
 
-| #   | Feature                    | Phase      | Status      |
-| --- | -------------------------- | ---------- | ----------- |
-| 1   | Foundations                | Foundation | done        |
-| 2   | Thin knowledge loop        | MVP        | done        |
-| 3   | Note capture and editing   | MVP        | done        |
-| 4   | Basic document ingestion   | MVP        | done        |
-| 5   | Citation and answer polish | MVP        | done        |
-| 6   | URL ingestion              | MVP        | done        |
-| 7   | Source organization        | MVP        | done        |
-| 8   | Source lifecycle           | MVP        | done        |
-| 9   | Workspace navigation       | MVP        | done        |
-| 10  | Privacy and data lifecycle | Post-MVP   | in-progress |
+| #   | Feature                    | Phase      | Status |
+| --- | -------------------------- | ---------- | ------ |
+| 1   | Foundations                | Foundation | done   |
+| 2   | Thin knowledge loop        | MVP        | done   |
+| 3   | Note capture and editing   | MVP        | done   |
+| 4   | Basic document ingestion   | MVP        | done   |
+| 5   | Citation and answer polish | MVP        | done   |
+| 6   | URL ingestion              | MVP        | done   |
+| 7   | Source organization        | MVP        | done   |
+| 8   | Source lifecycle           | MVP        | done   |
+| 9   | Workspace navigation       | MVP        | done   |
+| 10  | Privacy and data lifecycle | Post-MVP   | done   |
 
 ## Foundation
 
@@ -154,7 +154,7 @@ Split the crowded dashboard into focused workspace pages so each main feature ha
 
 ## Post MVP
 
-### 10. Privacy and data lifecycle · in-progress
+### 10. Privacy and data lifecycle · done
 
 Let users take their data out and permanently purge archived sources without breaking citation history.
 

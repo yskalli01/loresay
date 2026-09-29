@@ -11,6 +11,7 @@ import {
 } from "@/application/knowledge/use-cases";
 import {
   archiveSource,
+  purgeArchivedSource,
   retrySourceIngestion,
   saveTextDocument,
   saveTextNote,
@@ -34,6 +35,8 @@ function domainMessage(error: KnowledgeDomainError) {
     duplicate_active_source: "That source is already saved.",
     empty_url_content: "That URL did not contain readable text.",
     source_retry_missing_content: "This source has no extracted text to retry.",
+    purge_confirmation_mismatch: "Type the source title exactly to purge it.",
+    source_not_archived: "Archive the source before permanently purging it.",
     source_retry_not_failed: "Only failed sources can be retried.",
     unsupported_url_content_type:
       "Only web pages and plain text URLs can be ingested.",
@@ -335,6 +338,57 @@ export async function archiveSourceAction(
   redirect("/sources");
 }
 
+export async function purgeSourceAction(
+  _state: NoteActionState,
+  formData: FormData,
+): Promise<NoteActionState> {
+  const sourceId = String(formData.get("sourceId") ?? "").trim();
+  const confirmation = String(formData.get("confirmation") ?? "").trim();
+
+  try {
+    const user = await requireSessionUser();
+    const source = await knowledgeRepository.getSourceForOwner({
+      owner: { userId: user.id },
+      sourceId,
+    });
+
+    if (!source) {
+      return { error: "Source not found." };
+    }
+
+    if (confirmation !== source.title) {
+      return {
+        error: domainMessage(
+          new KnowledgeDomainError(
+            "Type the source title exactly to purge it.",
+            "purge_confirmation_mismatch",
+          ),
+        ),
+      };
+    }
+
+    const result = await purgeArchivedSource({
+      owner: { userId: user.id },
+      repository: knowledgeRepository,
+      sourceId,
+    });
+
+    revalidatePath("/");
+    revalidatePath("/notes");
+    revalidatePath("/ingestion");
+    revalidatePath("/chat");
+    revalidatePath("/sources");
+    revalidatePath(`/sources/${sourceId}`);
+
+    if (!result.ok) {
+      return { error: result.message };
+    }
+
+    return { message: result.message };
+  } catch (error) {
+    return actionError(error, "The source could not be purged.");
+  }
+}
 export async function retrySourceIngestionAction(
   _state: NoteActionState,
   formData: FormData,

@@ -25,6 +25,7 @@ const activeNoteSource = {
   fingerprint: "note-1",
   metadata: {},
   deletedAt: null,
+  purgedAt: null,
   createdAt: new Date("2026-01-01T00:00:00Z"),
   updatedAt: new Date("2026-01-01T00:00:00Z"),
 } as const;
@@ -68,6 +69,24 @@ function createRepository(): KnowledgeRepository {
     listKnowledgeSources: vi.fn(async () => ({
       items: [],
       next_cursor: null,
+    })),
+    listArchivedSources: vi.fn(async () => []),
+    exportOwnedKnowledge: vi.fn(async () => ({
+      answer_citations: [],
+      chat_messages: [],
+      chat_threads: [],
+      collection_sources: [],
+      collections: [],
+      exported_at: new Date("2026-01-01T00:00:00Z"),
+      retrieval_results: [],
+      retrieval_runs: [],
+      source_tags: [],
+      sources: [],
+      tags: [],
+    })),
+    purgeArchivedSource: vi.fn(async () => ({
+      purgedAt: new Date("2026-01-01T00:00:00Z"),
+      sourceId: "source-1",
     })),
     getSourceDetail: vi.fn(async () => null),
     listCollections: vi.fn(async () => []),
@@ -160,6 +179,7 @@ describe("knowledge use cases", () => {
       fingerprint: "note-1",
       metadata: {},
       deletedAt: null,
+      purgedAt: null,
       createdAt: new Date("2026-01-01T00:00:00Z"),
       updatedAt: new Date("2026-01-01T00:00:00Z"),
     });
@@ -183,6 +203,7 @@ describe("knowledge use cases", () => {
       fingerprint: "note-1",
       metadata: {},
       deletedAt: new Date("2026-01-01T00:00:00Z"),
+      purgedAt: null,
       createdAt: new Date("2026-01-01T00:00:00Z"),
       updatedAt: new Date("2026-01-01T00:00:00Z"),
     });

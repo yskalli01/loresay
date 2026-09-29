@@ -1,7 +1,7 @@
 # 0005. Privacy And Data Lifecycle
 
 **Date**: 2026-09-28
-**Status**: Proposed
+**Status**: Implemented
 
 ## Summary
 
@@ -167,7 +167,7 @@ No new table is required for this slice. A later audit log can add a dedicated e
 | Purge source     | rows to remove              | foreign key relationships from source to content, chunks, embeddings, jobs, and organization links |
 | Purge source     | purge timestamp             | server clock inside the database transaction                                                       |
 | Purge source     | citation survival           | `answer_citations` snapshot columns and nullable `chunk_id` foreign key                            |
-| Purge UI         | confirmation value          | user typed source title or fixed phrase decided by the component                                   |
+| Purge UI         | confirmation value          | user typed exact source title                                                                      |
 | Purge UI         | success state               | application use case result                                                                        |
 
 **Key invariants**:

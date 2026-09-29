@@ -195,6 +195,12 @@ export async function listKnowledgeSources(
   });
 }
 
+export async function exportOwnedKnowledge(
+  repository: KnowledgeRepository,
+  owner: OwnerContext,
+) {
+  return repository.exportOwnedKnowledge({ owner });
+}
 export async function assertCollectionSourceLink(
   repository: KnowledgeRepository,
   owner: OwnerContext,

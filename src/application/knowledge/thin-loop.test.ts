@@ -9,6 +9,7 @@ import type {
 import {
   answerQuestion,
   archiveSource,
+  purgeArchivedSource,
   saveTextDocument,
   saveTextNote,
   saveUrlSource,
@@ -56,6 +57,7 @@ function createRepository(): KnowledgeRepository {
     getSourceForOwner: vi.fn(async (): Promise<KnowledgeSourceRecord> => ({
       createdAt: new Date("2026-01-01T00:00:00Z"),
       deletedAt: null,
+      purgedAt: null,
       fingerprint: "note-1",
       id: "source-1",
       metadata: { body_hash: "old-hash", note_id: "note-1" },
@@ -66,6 +68,24 @@ function createRepository(): KnowledgeRepository {
       userId: "user-1",
     })),
     listKnowledgeSources: vi.fn(async () => ({ items: [], next_cursor: null })),
+    listArchivedSources: vi.fn(async () => []),
+    exportOwnedKnowledge: vi.fn(async () => ({
+      answer_citations: [],
+      chat_messages: [],
+      chat_threads: [],
+      collection_sources: [],
+      collections: [],
+      exported_at: new Date("2026-01-01T00:00:00Z"),
+      retrieval_results: [],
+      retrieval_runs: [],
+      source_tags: [],
+      sources: [],
+      tags: [],
+    })),
+    purgeArchivedSource: vi.fn(async () => ({
+      purgedAt: new Date("2026-01-01T00:00:00Z"),
+      sourceId: "source-1",
+    })),
     getSourceDetail: vi.fn(async () => null),
     listCollections: vi.fn(async () => []),
     createCollection: vi.fn(async ({ name }) => ({
@@ -340,6 +360,48 @@ describe("thin knowledge loop use cases", () => {
       owner,
       sourceId: "source-1",
     });
+  });
+
+  it("purges an archived source after archive state is confirmed", async () => {
+    const repository = createRepository();
+    vi.mocked(repository.getSourceForOwner).mockResolvedValueOnce({
+      createdAt: new Date("2026-01-01T00:00:00Z"),
+      deletedAt: new Date("2026-01-02T00:00:00Z"),
+      purgedAt: null,
+      fingerprint: "note-1",
+      id: "source-1",
+      metadata: { body_hash: "old-hash", note_id: "note-1" },
+      status: "deleted",
+      title: "Note",
+      type: "note",
+      updatedAt: new Date("2026-01-02T00:00:00Z"),
+      userId: "user-1",
+    });
+
+    const result = await purgeArchivedSource({
+      owner,
+      repository,
+      sourceId: "source-1",
+    });
+
+    expect(result).toMatchObject({ ok: true });
+    expect(repository.purgeArchivedSource).toHaveBeenCalledWith({
+      owner,
+      sourceId: "source-1",
+    });
+  });
+
+  it("refuses to purge an active source", async () => {
+    const repository = createRepository();
+
+    await expect(
+      purgeArchivedSource({
+        owner,
+        repository,
+        sourceId: "source-1",
+      }),
+    ).rejects.toThrow("Archive this source before purging it");
+    expect(repository.purgeArchivedSource).not.toHaveBeenCalled();
   });
 
   it("retries a failed source from its active extracted text", async () => {

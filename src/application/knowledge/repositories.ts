@@ -27,6 +27,7 @@ export type KnowledgeSourceRecord = {
   fingerprint: string;
   metadata: JsonObject;
   deletedAt: Date | null;
+  purgedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -120,6 +121,86 @@ export type SourceDetailDto = {
   tags: TagSummaryDto[];
 };
 
+export type KnowledgeExportDto = {
+  exported_at: Date;
+  sources: Array<{
+    source_id: KnowledgeSourceId;
+    type: SourceType;
+    title: string;
+    status: SourceStatus;
+    fingerprint: string;
+    metadata: JsonObject;
+    active_content_text: string | null;
+    created_at: Date;
+    updated_at: Date;
+    deleted_at: Date | null;
+    purged_at: Date | null;
+  }>;
+  collections: Array<{
+    collection_id: string;
+    name: string;
+    created_at: Date;
+    updated_at: Date;
+  }>;
+  tags: Array<{
+    tag_id: string;
+    name: string;
+    created_at: Date;
+  }>;
+  collection_sources: Array<{
+    collection_id: string;
+    source_id: KnowledgeSourceId;
+  }>;
+  source_tags: Array<{
+    tag_id: string;
+    source_id: KnowledgeSourceId;
+  }>;
+  chat_threads: Array<{
+    thread_id: ChatThreadId;
+    title: string;
+    created_at: Date;
+    updated_at: Date;
+  }>;
+  chat_messages: Array<{
+    message_id: ChatMessageId;
+    thread_id: ChatThreadId;
+    role: ChatRole;
+    content: string;
+    created_at: Date;
+  }>;
+  retrieval_runs: Array<{
+    retrieval_run_id: string;
+    message_id: ChatMessageId;
+    query: string;
+    filters: JsonObject;
+    prompt_context_hash: string;
+    created_at: Date;
+  }>;
+  retrieval_results: Array<{
+    retrieval_result_id: string;
+    retrieval_run_id: string;
+    chunk_id: SourceChunkId | null;
+    rank: number;
+    score: number;
+  }>;
+  answer_citations: Array<{
+    citation_id: string;
+    message_id: ChatMessageId;
+    chunk_id: SourceChunkId | null;
+    source_id_snapshot: KnowledgeSourceId;
+    source_type_snapshot: SourceType;
+    source_title_snapshot: string;
+    source_fingerprint_snapshot: string;
+    source_content_id_snapshot: SourceContentId;
+    content_version_snapshot: number;
+    chunk_position_snapshot: number;
+    chunk_hash_snapshot: string;
+    location_snapshot: JsonObject;
+    quote: string | null;
+    rank: number;
+    created_at: Date;
+  }>;
+};
 export interface KnowledgeRepository {
   ensureProfile(input: {
     owner: OwnerContext;
@@ -204,10 +285,24 @@ export interface KnowledgeRepository {
     filters?: SourceListFilters;
   }): Promise<PaginatedSourceSummaries>;
 
+  listArchivedSources(input: {
+    owner: OwnerContext;
+    limit?: number;
+  }): Promise<SourceSummaryDto[]>;
+
   getSourceDetail(input: {
     owner: OwnerContext;
     sourceId: KnowledgeSourceId;
   }): Promise<SourceDetailDto | null>;
+
+  exportOwnedKnowledge(input: {
+    owner: OwnerContext;
+  }): Promise<KnowledgeExportDto>;
+
+  purgeArchivedSource(input: {
+    owner: OwnerContext;
+    sourceId: KnowledgeSourceId;
+  }): Promise<{ sourceId: KnowledgeSourceId; purgedAt: Date }>;
 
   listCollections(input: {
     owner: OwnerContext;

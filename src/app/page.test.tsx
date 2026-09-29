@@ -32,6 +32,15 @@ const documentSource = {
   updated_at: new Date("2026-09-13T09:30:00.000Z"),
 };
 
+const archivedSource = {
+  active_content_text: "Archived text",
+  created_at: new Date("2026-09-10T09:00:00.000Z"),
+  source_id: "source-archived",
+  status: "deleted",
+  title: "Archived research",
+  type: "note",
+  updated_at: new Date("2026-09-10T09:30:00.000Z"),
+};
 const sources = [noteSource, urlSource, documentSource];
 
 const listKnowledgeSources = vi.fn(
@@ -69,6 +78,7 @@ vi.mock("@/infrastructure/db/knowledge-repository", () => ({
       tags: [{ name: "retrieval", source_count: 1, tag_id: "tag-1" }],
     })),
     listKnowledgeSources,
+    listArchivedSources: vi.fn(async () => [archivedSource]),
   },
 }));
 
@@ -85,6 +95,7 @@ vi.mock("@/app/actions/knowledge", () => ({
   createTextDocumentAction: vi.fn(),
   createTextNoteAction: vi.fn(),
   createUrlSourceAction: vi.fn(),
+  purgeSourceAction: vi.fn(),
   retrySourceIngestionAction: vi.fn(),
   updateTextNoteAction: vi.fn(),
 }));
@@ -162,6 +173,10 @@ describe("Knowledge workspace routes", () => {
     expect(html).toContain("Source library");
     expect(html).toContain("Any type");
     expect(html).toContain("Any status");
+    expect(html).toContain("Privacy and data lifecycle");
+    expect(html).toContain("Export knowledge");
+    expect(html).toContain("Archived research");
+    expect(html).toContain("Permanently purge");
     expect(html).toContain("Organization");
     expect(html).toContain("Research (1)");
     expect(html).toContain("retrieval (1)");

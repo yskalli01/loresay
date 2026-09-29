@@ -2,6 +2,7 @@ import { requireSessionUser } from "@/infrastructure/auth/session";
 import { knowledgeRepository } from "@/infrastructure/db/knowledge-repository";
 import { AppShell } from "@/presentation/app/app-shell";
 import { OrganizationPanel } from "@/presentation/app/organization-panel";
+import { PrivacyLifecyclePanel } from "@/presentation/app/privacy-lifecycle-panel";
 import { PageHeader } from "@/presentation/app/page-header";
 import {
   parseSourceFilters,
@@ -16,7 +17,8 @@ export default async function SourcesPage(props?: {
   const owner = { userId: user.id };
   const searchParams = props?.searchParams ? await props.searchParams : {};
   const filters = parseSourceFilters(searchParams);
-  const [dashboard, sourceList] = await Promise.all([
+  const [archivedSources, dashboard, sourceList] = await Promise.all([
+    knowledgeRepository.listArchivedSources({ limit: 12, owner }),
     knowledgeRepository.getDashboardSummary({ owner }),
     knowledgeRepository.listKnowledgeSources({
       filters,
@@ -65,6 +67,7 @@ export default async function SourcesPage(props?: {
           </section>
 
           <aside className="space-y-6" aria-label="Source organization">
+            <PrivacyLifecyclePanel archivedSources={archivedSources} />
             <OrganizationPanel
               collections={dashboard.collections}
               tags={dashboard.tags}

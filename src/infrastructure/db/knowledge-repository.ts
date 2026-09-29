@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, isNotNull, isNull, sql } from "drizzle-orm";
 
 import type {
   AnswerCitationInput,
@@ -116,6 +116,7 @@ export class DrizzleKnowledgeRepository implements KnowledgeRepository {
           createdAt: row.createdAt,
           deletedAt: row.deletedAt,
           fingerprint: row.fingerprint,
+          purgedAt: row.purgedAt,
           id: row.id,
           metadata: row.metadata,
           status: row.status,
@@ -147,6 +148,7 @@ export class DrizzleKnowledgeRepository implements KnowledgeRepository {
           createdAt: row.createdAt,
           deletedAt: row.deletedAt,
           fingerprint: row.fingerprint,
+          purgedAt: row.purgedAt,
           id: row.id,
           metadata: row.metadata,
           status: row.status,
@@ -438,6 +440,253 @@ export class DrizzleKnowledgeRepository implements KnowledgeRepository {
     };
   }
 
+  async listArchivedSources(input: { owner: OwnerContext; limit?: number }) {
+    const rows = await db
+      .select({
+        contentText: sourceContents.text,
+        source: knowledgeSources,
+      })
+      .from(knowledgeSources)
+      .leftJoin(
+        sourceContents,
+        and(
+          eq(sourceContents.sourceId, knowledgeSources.id),
+          eq(sourceContents.active, true),
+        ),
+      )
+      .where(
+        and(
+          eq(knowledgeSources.userId, input.owner.userId),
+          isNotNull(knowledgeSources.deletedAt),
+          isNull(knowledgeSources.purgedAt),
+        ),
+      )
+      .orderBy(desc(knowledgeSources.deletedAt), desc(knowledgeSources.id))
+      .limit(input.limit ?? 12);
+
+    return rows.map((row) => sourceSummary(row.source, row.contentText));
+  }
+
+  async exportOwnedKnowledge(input: { owner: OwnerContext }) {
+    const sourceRows = await db
+      .select({ contentText: sourceContents.text, source: knowledgeSources })
+      .from(knowledgeSources)
+      .leftJoin(
+        sourceContents,
+        and(
+          eq(sourceContents.sourceId, knowledgeSources.id),
+          eq(sourceContents.active, true),
+        ),
+      )
+      .where(eq(knowledgeSources.userId, input.owner.userId))
+      .orderBy(desc(knowledgeSources.updatedAt), desc(knowledgeSources.id));
+
+    const collectionRows = await db
+      .select({
+        collection_id: collections.id,
+        created_at: collections.createdAt,
+        name: collections.name,
+        updated_at: collections.updatedAt,
+      })
+      .from(collections)
+      .where(eq(collections.userId, input.owner.userId))
+      .orderBy(collections.name);
+
+    const tagRows = await db
+      .select({
+        created_at: tags.createdAt,
+        name: tags.name,
+        tag_id: tags.id,
+      })
+      .from(tags)
+      .where(eq(tags.userId, input.owner.userId))
+      .orderBy(tags.name);
+
+    const collectionSourceRows = await db
+      .select({
+        collection_id: collectionSources.collectionId,
+        source_id: collectionSources.sourceId,
+      })
+      .from(collectionSources)
+      .innerJoin(
+        collections,
+        eq(collections.id, collectionSources.collectionId),
+      )
+      .where(eq(collections.userId, input.owner.userId));
+
+    const sourceTagRows = await db
+      .select({
+        source_id: sourceTags.sourceId,
+        tag_id: sourceTags.tagId,
+      })
+      .from(sourceTags)
+      .innerJoin(tags, eq(tags.id, sourceTags.tagId))
+      .where(eq(tags.userId, input.owner.userId));
+
+    const threadRows = await db
+      .select({
+        created_at: chatThreads.createdAt,
+        thread_id: chatThreads.id,
+        title: chatThreads.title,
+        updated_at: chatThreads.updatedAt,
+      })
+      .from(chatThreads)
+      .where(eq(chatThreads.userId, input.owner.userId))
+      .orderBy(desc(chatThreads.updatedAt), desc(chatThreads.id));
+
+    const messageRows = await db
+      .select({
+        content: chatMessages.content,
+        created_at: chatMessages.createdAt,
+        message_id: chatMessages.id,
+        role: chatMessages.role,
+        thread_id: chatMessages.threadId,
+      })
+      .from(chatMessages)
+      .innerJoin(chatThreads, eq(chatThreads.id, chatMessages.threadId))
+      .where(eq(chatThreads.userId, input.owner.userId))
+      .orderBy(chatMessages.createdAt, chatMessages.id);
+
+    const retrievalRunRows = await db
+      .select({
+        created_at: retrievalRuns.createdAt,
+        filters: retrievalRuns.filters,
+        message_id: retrievalRuns.messageId,
+        prompt_context_hash: retrievalRuns.promptContextHash,
+        query: retrievalRuns.query,
+        retrieval_run_id: retrievalRuns.id,
+      })
+      .from(retrievalRuns)
+      .innerJoin(chatMessages, eq(chatMessages.id, retrievalRuns.messageId))
+      .innerJoin(chatThreads, eq(chatThreads.id, chatMessages.threadId))
+      .where(eq(chatThreads.userId, input.owner.userId))
+      .orderBy(retrievalRuns.createdAt, retrievalRuns.id);
+
+    const retrievalResultRows = await db
+      .select({
+        chunk_id: retrievalResults.chunkId,
+        rank: retrievalResults.rank,
+        retrieval_result_id: retrievalResults.id,
+        retrieval_run_id: retrievalResults.retrievalRunId,
+        score: retrievalResults.score,
+      })
+      .from(retrievalResults)
+      .innerJoin(
+        retrievalRuns,
+        eq(retrievalRuns.id, retrievalResults.retrievalRunId),
+      )
+      .innerJoin(chatMessages, eq(chatMessages.id, retrievalRuns.messageId))
+      .innerJoin(chatThreads, eq(chatThreads.id, chatMessages.threadId))
+      .where(eq(chatThreads.userId, input.owner.userId))
+      .orderBy(retrievalResults.retrievalRunId, retrievalResults.rank);
+
+    const citationRows = await db
+      .select({
+        chunk_hash_snapshot: answerCitations.chunkHashSnapshot,
+        chunk_id: answerCitations.chunkId,
+        chunk_position_snapshot: answerCitations.chunkPositionSnapshot,
+        citation_id: answerCitations.id,
+        content_version_snapshot: answerCitations.contentVersionSnapshot,
+        created_at: answerCitations.createdAt,
+        location_snapshot: answerCitations.locationSnapshot,
+        message_id: answerCitations.messageId,
+        quote: answerCitations.quote,
+        rank: answerCitations.rank,
+        source_content_id_snapshot: answerCitations.sourceContentIdSnapshot,
+        source_fingerprint_snapshot: answerCitations.sourceFingerprintSnapshot,
+        source_id_snapshot: answerCitations.sourceIdSnapshot,
+        source_title_snapshot: answerCitations.sourceTitleSnapshot,
+        source_type_snapshot: answerCitations.sourceTypeSnapshot,
+      })
+      .from(answerCitations)
+      .innerJoin(chatMessages, eq(chatMessages.id, answerCitations.messageId))
+      .innerJoin(chatThreads, eq(chatThreads.id, chatMessages.threadId))
+      .where(eq(chatThreads.userId, input.owner.userId))
+      .orderBy(answerCitations.messageId, answerCitations.rank);
+
+    return {
+      answer_citations: citationRows,
+      chat_messages: messageRows,
+      chat_threads: threadRows,
+      collection_sources: collectionSourceRows,
+      collections: collectionRows,
+      exported_at: new Date(),
+      retrieval_results: retrievalResultRows,
+      retrieval_runs: retrievalRunRows,
+      source_tags: sourceTagRows,
+      sources: sourceRows.map((row) => ({
+        active_content_text:
+          row.source.purgedAt === null ? row.contentText : null,
+        created_at: row.source.createdAt,
+        deleted_at: row.source.deletedAt,
+        fingerprint: row.source.fingerprint,
+        metadata: row.source.metadata,
+        purged_at: row.source.purgedAt,
+        source_id: row.source.id,
+        status: row.source.status,
+        title: row.source.title,
+        type: row.source.type,
+        updated_at: row.source.updatedAt,
+      })),
+      tags: tagRows,
+    };
+  }
+
+  async purgeArchivedSource(input: {
+    owner: OwnerContext;
+    sourceId: KnowledgeSourceId;
+  }) {
+    return db.transaction(async (tx) => {
+      const [source] = await tx
+        .select()
+        .from(knowledgeSources)
+        .where(
+          and(
+            eq(knowledgeSources.id, input.sourceId),
+            eq(knowledgeSources.userId, input.owner.userId),
+          ),
+        )
+        .limit(1);
+
+      if (!source) {
+        throw new Error("Source not found");
+      }
+
+      if (source.purgedAt) {
+        return { purgedAt: source.purgedAt, sourceId: input.sourceId };
+      }
+
+      if (source.deletedAt === null || source.status !== "deleted") {
+        throw new Error("Source must be archived before purge");
+      }
+
+      const purgedAt = new Date();
+
+      await tx
+        .delete(ingestionJobs)
+        .where(eq(ingestionJobs.sourceId, input.sourceId));
+      await tx
+        .delete(collectionSources)
+        .where(eq(collectionSources.sourceId, input.sourceId));
+      await tx
+        .delete(sourceTags)
+        .where(eq(sourceTags.sourceId, input.sourceId));
+      await tx
+        .delete(sourceContents)
+        .where(eq(sourceContents.sourceId, input.sourceId));
+      await tx
+        .update(knowledgeSources)
+        .set({ purgedAt, status: "purged", updatedAt: purgedAt })
+        .where(
+          and(
+            eq(knowledgeSources.id, input.sourceId),
+            eq(knowledgeSources.userId, input.owner.userId),
+          ),
+        );
+
+      return { purgedAt, sourceId: input.sourceId };
+    });
+  }
   async getSourceDetail(input: {
     owner: OwnerContext;
     sourceId: KnowledgeSourceId;

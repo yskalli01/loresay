@@ -380,6 +380,35 @@ export async function archiveSource(input: {
   return { ok: true, message: "Source archived and removed from retrieval." };
 }
 
+export async function purgeArchivedSource(input: {
+  repository: KnowledgeRepository;
+  owner: OwnerContext;
+  sourceId: string;
+}): Promise<SourceLifecycleResult> {
+  const source = await input.repository.getSourceForOwner({
+    owner: input.owner,
+    sourceId: input.sourceId,
+  });
+
+  invariant(source !== null, "Source not found", "source_not_found");
+
+  if (source.purgedAt !== null || source.status === "purged") {
+    return { ok: true, message: "Source was already purged." };
+  }
+
+  invariant(
+    source.deletedAt !== null && source.status === "deleted",
+    "Archive this source before purging it",
+    "source_not_archived",
+  );
+
+  await input.repository.purgeArchivedSource({
+    owner: input.owner,
+    sourceId: input.sourceId,
+  });
+
+  return { ok: true, message: "Source content permanently purged." };
+}
 export async function retrySourceIngestion(input: {
   repository: KnowledgeRepository;
   embeddings: EmbeddingGateway;
