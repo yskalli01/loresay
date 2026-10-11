@@ -1,9 +1,9 @@
 import {
   Bot,
   Database,
+  Folder,
   LayoutDashboard,
-  Link2,
-  StickyNote,
+  Search,
   type LucideIcon,
 } from "lucide-react";
 
@@ -15,9 +15,14 @@ export type NavigationItem = {
 };
 
 export const navigationItems: NavigationItem[] = [
-  { href: "/", icon: LayoutDashboard, label: "Overview", status: "current" },
-  { href: "/notes", icon: StickyNote, label: "Notes", status: "current" },
-  { href: "/ingestion", icon: Link2, label: "Ingestion", status: "current" },
-  { href: "/chat", icon: Bot, label: "Chat with AI", status: "current" },
+  { href: "/", icon: LayoutDashboard, label: "Dashboard", status: "current" },
   { href: "/sources", icon: Database, label: "Sources", status: "current" },
+  {
+    href: "/collections",
+    icon: Folder,
+    label: "Collections",
+    status: "current",
+  },
+  { href: "/chat", icon: Bot, label: "Chat", status: "current" },
+  { href: "/search", icon: Search, label: "Search", status: "current" },
 ];

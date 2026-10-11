@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 import { cn } from "@/presentation/lib/utils";
 
-type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
+type ButtonVariant = "primary" | "secondary" | "tertiary" | "ghost" | "danger";
 type ButtonSize = "sm" | "md" | "icon";
 
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -13,13 +13,15 @@ export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 const variantClasses: Record<ButtonVariant, string> = {
   danger:
-    "bg-error text-white shadow-sm hover:bg-error/90 active:bg-error/80 disabled:bg-error/50",
+    "bg-error text-on-error shadow-control hover:bg-error-strong active:bg-error-strong disabled:bg-error-soft disabled:text-error/50",
   ghost:
-    "bg-transparent text-body hover:bg-surface-subtle active:bg-accent-soft disabled:text-muted",
+    "bg-transparent text-body hover:bg-surface-subtle hover:text-ink active:bg-accent-tint disabled:text-muted",
   primary:
-    "bg-accent text-on-accent shadow-sm hover:bg-accent-strong active:bg-accent-strong disabled:bg-accent/50",
+    "bg-accent text-on-accent shadow-control hover:bg-accent-strong active:bg-accent-strong disabled:bg-accent-soft disabled:text-white/80",
   secondary:
-    "border border-border-subtle bg-surface-raised text-ink shadow-sm hover:border-border hover:bg-surface-subtle active:bg-accent-soft disabled:text-muted",
+    "border border-border-subtle bg-surface-raised text-ink shadow-control hover:border-border hover:bg-surface-subtle active:bg-accent-tint disabled:bg-surface-subtle disabled:text-muted",
+  tertiary:
+    "bg-transparent text-accent hover:bg-accent-tint active:bg-accent-soft disabled:text-accent-light",
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
@@ -40,7 +42,7 @@ export function Button({
   return (
     <button
       className={cn(
-        "inline-flex shrink-0 items-center justify-center gap-2 rounded-md font-medium transition disabled:cursor-not-allowed disabled:opacity-70",
+        "inline-flex shrink-0 items-center justify-center gap-2 rounded-md font-semibold transition disabled:cursor-not-allowed disabled:opacity-80",
         sizeClasses[size],
         variantClasses[variant],
         className,

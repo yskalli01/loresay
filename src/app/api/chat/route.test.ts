@@ -105,6 +105,7 @@ describe("chat route", () => {
     });
 
     const response = await postChat({
+      collectionId: "collection-1",
       message: "What color badges?",
       threadId: "thread-1",
     });
@@ -133,6 +134,7 @@ describe("chat route", () => {
     expect(answerQuestion).toHaveBeenCalledWith(
       expect.objectContaining({
         owner: { userId: "user-1" },
+        filters: { collectionId: "collection-1" },
         question: "What color badges?",
         threadId: "thread-1",
       }),
@@ -148,7 +150,7 @@ describe("chat route", () => {
 
     expect(response.status).toBe(200);
     expect(events).toEqual([
-      { error: "The chat request failed", type: "error" },
+      { error: "The chat request failed. Try again.", type: "error" },
     ]);
   });
 });

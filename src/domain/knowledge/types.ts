@@ -31,7 +31,6 @@ export const knowledgeLimits = {
   chatMessageText: 32 * 1024,
   metadataJson: 16 * 1024,
   sourceText: 2 * 1024 * 1024,
-  tagName: 40,
   title: 200,
   retrievalResultsPerAnswer: 50,
 } as const;

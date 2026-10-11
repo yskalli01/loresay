@@ -41,6 +41,9 @@ Skip new specs unless a decision is genuinely unclear. Skip broad verification p
 | 8   | Source lifecycle           | MVP        | done   |
 | 9   | Workspace navigation       | MVP        | done   |
 | 10  | Privacy and data lifecycle | Post-MVP   | done   |
+| 11  | Unified source creation    | MVP        | done   |
+| 12  | Search pagination          | MVP        | done   |
+| 13  | Note capture robustness    | MVP        | done   |
 
 ## Foundation
 
@@ -119,25 +122,25 @@ Add a focused web-page ingestion path that feeds the same source, content, chunk
 
 ### 7. Source organization · done
 
-Add the smallest useful source manager around the existing collections and tags tables.
+Add the smallest useful source manager around the existing collections table.
 
-**Done when:** a signed in user can create collections and tags, filter sources, open source detail pages, and attach organization labels to owned sources.
+**Done when:** a signed in user can create collections, filter sources, open source detail pages, and attach organization labels to owned sources.
 
-- [x] Add dashboard filters for query, type, status, collection, and tag
-- [x] Add collection and tag creation forms
+- [x] Add dashboard filters for query, type, status, and collection
+- [x] Add collection creation forms
 - [x] Add source detail pages with metadata and active extracted content
-- [x] Add owned source-to-collection and source-to-tag linking actions
+- [x] Add owned source-to-collection linking actions
 
 ### 8. Source lifecycle · done
 
 Make saved sources safer to manage and make retrieval more precise before adding larger ingestion features.
 
-**Done when:** a signed in user can archive a source, retry failed processing, see clearer URL ingestion errors, and scope chat retrieval by collection or tag.
+**Done when:** a signed in user can archive a source, retry failed processing, see clearer URL ingestion errors, and scope chat retrieval by collection.
 
 - [x] Archive sources with a soft delete that removes them from retrieval
 - [x] Retry failed sources from active extracted text
 - [x] Show clearer URL ingestion errors for blocked, duplicate, oversized, unsupported, and fetch failed URLs
-- [x] Let chat retrieval scope to a collection or tag
+- [x] Let chat retrieval scope to a collection
 - [x] Add focused tests for lifecycle actions, retry, and filtered retrieval
 
 ### 9. Workspace navigation · done
@@ -147,10 +150,47 @@ Split the crowded dashboard into focused workspace pages so each main feature ha
 **Done when:** a signed in user can use the sidebar to move between an overview, notes, ingestion, chat, and sources without losing the existing knowledge loop controls.
 
 - [x] Keep `/` as an overview with metrics, quick links, recent sources, and ingestion status
-- [x] Add focused pages for notes, ingestion, chat with AI, and sources
+- [x] Add focused pages for new source, chat with AI, and sources
 - [x] Keep source detail pages under the Sources navigation item
 - [x] Move capture, ingestion, organization, and chat controls out of the front page
 - [x] Add focused route render tests for the new navigation structure
+
+### 11. Unified source creation · done
+
+Merge the note capture and document or URL ingestion pages into one New Source page with a single tabbed entry point.
+
+**Done when:** a signed in user can open one New Source surface from the dashboard, switch between Note, Document, and URL, and save through any of the three paths.
+
+- [x] Replace the New Note and Add Document or URL quick actions with one New Source quick action
+- [x] Add a New Source page with Note, Document, and URL tabs
+- [x] Remove the separate notes and ingestion routes
+- [x] Point the sources Add Source button at the New Source page
+- [x] Keep the recent source list with a link to source details instead of inline editing
+- [x] Add focused route render tests for the merged new source page
+
+### 12. Search pagination · done
+
+Paginate the search results five at a time, keeping the existing card list rather than switching to a table.
+
+**Done when:** a signed in user sees five search results per page and can move between numbered pages while the query is preserved.
+
+- [x] Paginate search results five at a time with numbered page links
+- [x] Keep the query parameter in page links so a search survives paging
+- [x] Show the range and total alongside the result count
+- [x] Reuse the sources page tab styling for pagination links
+- [x] Add a shared SourcePagination presentation component with accessible page links
+- [x] Add focused route render tests for page offsets and page links
+
+### 13. Note capture robustness · done
+
+Keep note capture clean and safe to repeat: the note form clears after a successful save, and a rejected save shows a readable error instead of breaking the page.
+
+**Done when:** a second note starts empty without the user clearing the editor, an empty note shows a validation message, and the page survives a rejected save.
+
+- [x] Remount the note form after a successful save so title and editor start empty
+- [x] Convert domain errors thrown by note, document, and note-update saves into form errors
+- [x] Add readable messages for empty notes, oversized notes, missing file names, and empty chunk results
+- [x] Add focused route render tests for the new source note form
 
 ## Post MVP
 

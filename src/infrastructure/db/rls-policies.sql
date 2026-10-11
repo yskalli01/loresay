@@ -6,8 +6,6 @@ alter table chunk_embeddings enable row level security;
 alter table ingestion_jobs enable row level security;
 alter table collections enable row level security;
 alter table collection_sources enable row level security;
-alter table tags enable row level security;
-alter table source_tags enable row level security;
 alter table chat_threads enable row level security;
 alter table chat_messages enable row level security;
 alter table retrieval_runs enable row level security;
@@ -110,27 +108,6 @@ create policy "collection sources are owner scoped" on collection_sources
     )
   );
 
-create policy "tags are owner scoped" on tags
-  for all using (user_id = auth.uid())
-  with check (user_id = auth.uid());
-
-create policy "source tags are owner scoped" on source_tags
-  for all using (
-    exists (
-      select 1 from tags
-      where tags.id = source_tags.tag_id
-      and tags.user_id = auth.uid()
-    )
-  )
-  with check (
-    exists (
-      select 1 from tags
-      join knowledge_sources on knowledge_sources.id = source_tags.source_id
-      where tags.id = source_tags.tag_id
-      and tags.user_id = auth.uid()
-      and knowledge_sources.user_id = auth.uid()
-    )
-  );
 
 create policy "chat threads are owner scoped" on chat_threads
   for all using (user_id = auth.uid())
@@ -210,3 +187,4 @@ create policy "answer citations are owner scoped" on answer_citations
       and chat_threads.user_id = auth.uid()
     )
   );
+

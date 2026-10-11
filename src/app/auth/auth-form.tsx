@@ -37,6 +37,19 @@ export function AuthForm() {
         </div>
 
         <form action={formAction} className="space-y-4">
+          {mode === "sign-up" ? (
+            <div className="space-y-2">
+              <Label htmlFor="display-name">Name</Label>
+              <Input
+                autoComplete="name"
+                id="display-name"
+                maxLength={80}
+                name="displayName"
+                placeholder="Your name"
+                required
+              />
+            </div>
+          ) : null}
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input

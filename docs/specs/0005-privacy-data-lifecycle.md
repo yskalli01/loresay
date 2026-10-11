@@ -28,10 +28,10 @@ This feature handles private user content. There is no named regulatory program 
 
 **Acceptance criteria**:
 
-- **AC-1**: A signed in user can export all owned sources, active extracted content, collections, tags, chat messages, retrieval run metadata, and citation snapshots as one JSON response or download.
+- **AC-1**: A signed in user can export all owned sources, active extracted content, collections, chat messages, retrieval run metadata, and citation snapshots as one JSON response or download.
 - **AC-2**: Export output includes archived sources but marks their status and timestamps clearly. It excludes raw embedding vectors and any deleted source content that has already been purged.
 - **AC-3**: A signed in user can permanently purge only a source they own and only after it has been archived.
-- **AC-4**: Purging removes source content, chunks, embeddings, ingestion jobs, collection links, tag links, and retrieval result links for that source, then marks the source `purged` with `purged_at`.
+- **AC-4**: Purging removes source content, chunks, embeddings, ingestion jobs, collection links, and retrieval result links for that source, then marks the source `purged` with `purged_at`.
 - **AC-5**: Purging keeps answer citation snapshot fields readable and sets any citation `chunk_id` reference to null through the existing foreign key behavior.
 - **AC-6**: Purged sources never appear in source lists, source detail pages, chat retrieval, filters, retry actions, or edit actions.
 - **AC-7**: Cross user export and purge attempts are denied by server logic and remain denied by Supabase row level security.
@@ -157,7 +157,7 @@ No new table is required for this slice. A later audit log can add a dedicated e
 | Export knowledge | generated timestamp         | server clock at export time                                                                        |
 | Export knowledge | source summaries            | `knowledge_sources` rows scoped by owner                                                           |
 | Export knowledge | active content text         | active `source_contents.text` rows for non purged sources                                          |
-| Export knowledge | organization labels         | `collections`, `tags`, and owned join rows                                                         |
+| Export knowledge | organization labels         | `collections` and owned join rows                                                                  |
 | Export knowledge | chat history                | `chat_threads` and `chat_messages` rows scoped by owner                                            |
 | Export knowledge | retrieval metadata          | `retrieval_runs` and `retrieval_results` rows reachable through owned chat messages                |
 | Export knowledge | citation history            | `answer_citations` snapshot columns reachable through owned chat messages                          |

@@ -14,14 +14,34 @@ import {
   saveTextNote,
   saveUrlSource,
   retrySourceIngestion,
+  updateTextDocument,
   updateTextNote,
+  updateUrlSource,
   type AnswerGateway,
 } from "./thin-loop";
+
+function sourceRecord(
+  overrides: Partial<KnowledgeSourceRecord> = {},
+): KnowledgeSourceRecord {
+  return {
+    createdAt: new Date("2026-01-01T00:00:00Z"),
+    deletedAt: null,
+    purgedAt: null,
+    fingerprint: "note-1",
+    id: "source-1",
+    metadata: { body_hash: "old-hash", note_id: "note-1" },
+    status: "ready",
+    title: "Note",
+    type: "note",
+    updatedAt: new Date("2026-01-01T00:00:00Z"),
+    userId: "user-1",
+    ...overrides,
+  };
+}
 
 function createRepository(): KnowledgeRepository {
   return {
     assertCollectionAndSourceShareOwner: vi.fn(),
-    assertTagAndSourceShareOwner: vi.fn(),
     createChatThread: vi.fn(async ({ title }) => ({
       threadId: "thread-1",
       title,
@@ -40,6 +60,33 @@ function createRepository(): KnowledgeRepository {
       updated_at: new Date("2026-01-01T00:00:00Z"),
     })),
     ensureProfile: vi.fn(),
+    getProfile: vi.fn(async () => ({
+      avatarStoragePath: null,
+      avatarUpdatedAt: null,
+      createdAt: new Date("2026-01-01T00:00:00Z"),
+      displayName: null,
+      id: "user-1",
+      updatedAt: new Date("2026-01-01T00:00:00Z"),
+    })),
+    updateProfile: vi.fn(async ({ displayName }) => ({
+      avatarStoragePath: null,
+      avatarUpdatedAt: null,
+      createdAt: new Date("2026-01-01T00:00:00Z"),
+      displayName,
+      id: "user-1",
+      updatedAt: new Date("2026-01-01T00:00:00Z"),
+    })),
+    updateProfileAvatar: vi.fn(
+      async ({ avatarStoragePath, avatarUpdatedAt }) => ({
+        avatarStoragePath,
+        avatarUpdatedAt,
+        createdAt: new Date("2026-01-01T00:00:00Z"),
+        displayName: null,
+        id: "user-1",
+        updatedAt: new Date("2026-01-01T00:00:00Z"),
+      }),
+    ),
+    deleteProfile: vi.fn(),
     findActiveSourceByFingerprint: vi.fn(async () => null),
     getDashboardSummary: vi.fn(async () => ({
       collections: [],
@@ -50,24 +97,20 @@ function createRepository(): KnowledgeRepository {
         processingCount: 0,
         queuedCount: 0,
       },
+      metrics: {
+        noteSources: 0,
+        totalSources: 0,
+        unsortedSources: 0,
+      },
       sources: [],
-      tags: [],
     })),
     getDefaultChatThread: vi.fn(async () => null),
-    getSourceForOwner: vi.fn(async (): Promise<KnowledgeSourceRecord> => ({
-      createdAt: new Date("2026-01-01T00:00:00Z"),
-      deletedAt: null,
-      purgedAt: null,
-      fingerprint: "note-1",
-      id: "source-1",
-      metadata: { body_hash: "old-hash", note_id: "note-1" },
-      status: "ready",
-      title: "Note",
-      type: "note",
-      updatedAt: new Date("2026-01-01T00:00:00Z"),
-      userId: "user-1",
+    getSourceForOwner: vi.fn(async () => sourceRecord()),
+    listKnowledgeSources: vi.fn(async () => ({
+      items: [],
+      next_cursor: null,
+      total: 0,
     })),
-    listKnowledgeSources: vi.fn(async () => ({ items: [], next_cursor: null })),
     listArchivedSources: vi.fn(async () => []),
     exportOwnedKnowledge: vi.fn(async () => ({
       answer_citations: [],
@@ -78,29 +121,36 @@ function createRepository(): KnowledgeRepository {
       exported_at: new Date("2026-01-01T00:00:00Z"),
       retrieval_results: [],
       retrieval_runs: [],
-      source_tags: [],
       sources: [],
-      tags: [],
     })),
     purgeArchivedSource: vi.fn(async () => ({
       purgedAt: new Date("2026-01-01T00:00:00Z"),
       sourceId: "source-1",
     })),
     getSourceDetail: vi.fn(async () => null),
+    listSourceCitations: vi.fn(async () => []),
     listCollections: vi.fn(async () => []),
-    createCollection: vi.fn(async ({ name }) => ({
+    createCollection: vi.fn(async ({ imageUrl, name }) => ({
       collection_id: "collection-1",
+      created_at: new Date("2026-01-01T00:00:00Z"),
+      image_url: imageUrl ?? null,
       name,
       source_count: 0,
+      updated_at: new Date("2026-01-01T00:00:00Z"),
+    })),
+    deleteCollection: vi.fn(),
+    deleteCollections: vi.fn(),
+    getCollectionDetail: vi.fn(async () => null),
+    updateCollection: vi.fn(async ({ imageUrl, name }) => ({
+      collection_id: "collection-1",
+      created_at: new Date("2026-01-01T00:00:00Z"),
+      image_url: imageUrl,
+      name,
+      source_count: 0,
+      updated_at: new Date("2026-01-01T00:00:00Z"),
     })),
     addSourceToCollection: vi.fn(),
-    listTags: vi.fn(async () => []),
-    createTag: vi.fn(async ({ name }) => ({
-      name,
-      source_count: 0,
-      tag_id: "tag-1",
-    })),
-    addTagToSource: vi.fn(),
+    removeSourceFromCollection: vi.fn(),
     recordAnswerCitations: vi.fn(async ({ citations }) =>
       citations.map((citation: AnswerCitationInput, index: number) => ({
         chunk_hash_snapshot: citation.chunkHashSnapshot,
@@ -141,6 +191,8 @@ function createRepository(): KnowledgeRepository {
 
 function createEmbeddings() {
   return {
+    model: "test-embedding-model",
+    provider: "test",
     embed: vi.fn(async () => Array(1536).fill(0.1)),
     embedMany: vi.fn(async (input: string[]) =>
       input.map(() => Array(1536).fill(0.1)),
@@ -169,7 +221,13 @@ describe("thin knowledge loop use cases", () => {
     );
     expect(repository.replaceActiveChunks).toHaveBeenCalledWith(
       expect.objectContaining({
-        embeddings: [expect.objectContaining({ dimensions: 1536 })],
+        embeddings: [
+          expect.objectContaining({
+            dimensions: 1536,
+            model: "test-embedding-model",
+            provider: "test",
+          }),
+        ],
       }),
     );
   });
@@ -318,8 +376,263 @@ describe("thin knowledge loop use cases", () => {
         owner,
         repository,
         sourceId: "other-source",
+        title: "Attempted edit",
       }),
     ).rejects.toThrow("Source not found");
+    expect(repository.updateKnowledgeSourceDetails).not.toHaveBeenCalled();
+  });
+
+  it("renames a document without reprocessing its content", async () => {
+    const repository = createRepository();
+    const embeddings = createEmbeddings();
+    vi.mocked(repository.getSourceForOwner).mockResolvedValueOnce(
+      sourceRecord({
+        fingerprint: "file-hash",
+        metadata: {
+          byte_size: 42,
+          file_hash: "file-hash",
+          file_name: "research.md",
+          mime_type: "text/markdown",
+          storage_bucket: "inline-upload",
+          storage_path: "inline-upload/file-hash/research.md",
+        },
+        title: "research.md",
+        type: "document",
+      }),
+    );
+
+    const result = await updateTextDocument({
+      embeddings,
+      owner,
+      repository,
+      sourceId: "source-1",
+      title: "Research archive",
+    });
+
+    expect(result).toMatchObject({ ok: true, reprocessed: false });
+    expect(repository.updateKnowledgeSourceDetails).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fingerprint: "file-hash",
+        status: "ready",
+        title: "Research archive",
+      }),
+    );
+    expect(repository.recordExtractedContent).not.toHaveBeenCalled();
+  });
+
+  it("replaces and reprocesses a document on the same source", async () => {
+    const repository = createRepository();
+    const embeddings = createEmbeddings();
+    vi.mocked(repository.getSourceForOwner).mockResolvedValueOnce(
+      sourceRecord({
+        fingerprint: "old-file-hash",
+        metadata: {
+          byte_size: 12,
+          file_hash: "old-file-hash",
+          file_name: "old.txt",
+          mime_type: "text/plain",
+          storage_bucket: "inline-upload",
+          storage_path: "inline-upload/old-file-hash/old.txt",
+        },
+        title: "Old document",
+        type: "document",
+      }),
+    );
+
+    const result = await updateTextDocument({
+      embeddings,
+      owner,
+      replacement: {
+        byteSize: 24,
+        fileName: "replacement.md",
+        mimeType: "text/markdown",
+        text: "# Replacement\n\nNew searchable content.",
+      },
+      repository,
+      sourceId: "source-1",
+      title: "Updated document",
+    });
+
+    expect(result).toMatchObject({ ok: true, reprocessed: true });
+    expect(repository.findActiveSourceByFingerprint).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "document" }),
+    );
+    expect(repository.updateKnowledgeSourceDetails).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fingerprint: expect.any(String),
+        metadata: expect.objectContaining({
+          file_name: "replacement.md",
+          mime_type: "text/markdown",
+        }),
+        status: "processing",
+        title: "Updated document",
+      }),
+    );
+    expect(repository.recordExtractedContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: "# Replacement\n\nNew searchable content.",
+      }),
+    );
+  });
+
+  it("renames a URL without fetching when its canonical address is unchanged", async () => {
+    const repository = createRepository();
+    const embeddings = createEmbeddings();
+    const fetcher = vi.fn();
+    vi.mocked(repository.getSourceForOwner).mockResolvedValueOnce(
+      sourceRecord({
+        fingerprint: "url-hash",
+        metadata: {
+          canonical_url: "https://example.com/research",
+          original_url: "https://example.com/research",
+          url_hash: "url-hash",
+        },
+        title: "Research page",
+        type: "url",
+      }),
+    );
+
+    const result = await updateUrlSource({
+      embeddings,
+      fetcher,
+      owner,
+      repository,
+      sourceId: "source-1",
+      title: "Renamed research",
+      url: "HTTPS://Example.com/research/#section",
+    });
+
+    expect(result).toMatchObject({ ok: true, reprocessed: false });
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(repository.recordExtractedContent).not.toHaveBeenCalled();
+    expect(repository.updateKnowledgeSourceDetails).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fingerprint: "url-hash",
+        title: "Renamed research",
+      }),
+    );
+  });
+
+  it("fetches and reprocesses a changed URL", async () => {
+    const repository = createRepository();
+    const embeddings = createEmbeddings();
+    const fetcher = vi.fn(
+      async () =>
+        new Response(
+          "<html><head><title>New page</title></head><body><p>Fresh URL content.</p></body></html>",
+          { headers: { "content-type": "text/html" } },
+        ),
+    );
+    vi.mocked(repository.getSourceForOwner).mockResolvedValueOnce(
+      sourceRecord({
+        fingerprint: "old-url-hash",
+        metadata: {
+          canonical_url: "https://example.com/old",
+          original_url: "https://example.com/old",
+          url_hash: "old-url-hash",
+        },
+        title: "Old page",
+        type: "url",
+      }),
+    );
+
+    const result = await updateUrlSource({
+      embeddings,
+      fetcher,
+      owner,
+      repository,
+      sourceId: "source-1",
+      title: "New research page",
+      url: "https://example.com/new",
+    });
+
+    expect(result).toMatchObject({ ok: true, reprocessed: true });
+    expect(fetcher).toHaveBeenCalledWith(
+      "https://example.com/new",
+      expect.any(Object),
+    );
+    expect(repository.updateKnowledgeSourceDetails).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fingerprint: expect.any(String),
+        metadata: expect.objectContaining({
+          canonical_url: "https://example.com/new",
+        }),
+        status: "processing",
+        title: "New research page",
+      }),
+    );
+    expect(repository.recordExtractedContent).toHaveBeenCalledWith(
+      expect.objectContaining({ text: "Fresh URL content." }),
+    );
+  });
+
+  it("rejects duplicate document replacements before changing the source", async () => {
+    const repository = createRepository();
+    const embeddings = createEmbeddings();
+    vi.mocked(repository.getSourceForOwner).mockResolvedValueOnce(
+      sourceRecord({
+        fingerprint: "old-file-hash",
+        metadata: {
+          byte_size: 12,
+          file_hash: "old-file-hash",
+          file_name: "old.txt",
+          mime_type: "text/plain",
+          storage_bucket: "inline-upload",
+          storage_path: "inline-upload/old-file-hash/old.txt",
+        },
+        type: "document",
+      }),
+    );
+    vi.mocked(repository.findActiveSourceByFingerprint).mockResolvedValueOnce(
+      sourceRecord({ id: "duplicate-source", type: "document" }),
+    );
+
+    await expect(
+      updateTextDocument({
+        embeddings,
+        owner,
+        replacement: {
+          byteSize: 14,
+          fileName: "duplicate.txt",
+          mimeType: "text/plain",
+          text: "Duplicate text",
+        },
+        repository,
+        sourceId: "source-1",
+        title: "Duplicate",
+      }),
+    ).rejects.toThrow("An active source with this fingerprint already exists");
+    expect(repository.updateKnowledgeSourceDetails).not.toHaveBeenCalled();
+  });
+
+  it("rejects deleted sources and blocked replacement URLs", async () => {
+    const repository = createRepository();
+    const embeddings = createEmbeddings();
+    vi.mocked(repository.getSourceForOwner).mockResolvedValueOnce(
+      sourceRecord({ deletedAt: new Date("2026-02-01T00:00:00Z") }),
+    );
+
+    await expect(
+      updateTextNote({
+        body: "Updated",
+        embeddings,
+        owner,
+        repository,
+        sourceId: "source-1",
+        title: "Updated note",
+      }),
+    ).rejects.toThrow("Source is deleted");
+
+    await expect(
+      updateUrlSource({
+        embeddings,
+        owner,
+        repository,
+        sourceId: "source-1",
+        title: "Blocked URL",
+        url: "http://127.0.0.1/private",
+      }),
+    ).rejects.toThrow("This URL host cannot be ingested");
     expect(repository.updateKnowledgeSourceDetails).not.toHaveBeenCalled();
   });
 
@@ -404,7 +717,7 @@ describe("thin knowledge loop use cases", () => {
     expect(repository.purgeArchivedSource).not.toHaveBeenCalled();
   });
 
-  it("retries a failed source from its active extracted text", async () => {
+  it("reprocesses a ready source from its active extracted text", async () => {
     const repository = createRepository();
     const embeddings = createEmbeddings();
     vi.mocked(repository.getSourceDetail).mockResolvedValueOnce({
@@ -416,12 +729,11 @@ describe("thin knowledge loop use cases", () => {
         fingerprint: "source-1",
         metadata: { note_id: "note-1", body_hash: "hash" },
         source_id: "source-1",
-        status: "failed",
+        status: "ready",
         title: "Retry source",
         type: "note",
         updated_at: new Date("2026-01-01T00:00:00Z"),
       },
-      tags: [],
     });
 
     const result = await retrySourceIngestion({
@@ -439,6 +751,36 @@ describe("thin knowledge loop use cases", () => {
       expect.objectContaining({ status: "succeeded" }),
     );
   });
+
+  it("refuses to reprocess a source without active extracted text", async () => {
+    const repository = createRepository();
+    const embeddings = createEmbeddings();
+    vi.mocked(repository.getSourceDetail).mockResolvedValueOnce({
+      active_content_text: null,
+      collections: [],
+      source: {
+        active_content_text: null,
+        created_at: new Date("2026-01-01T00:00:00Z"),
+        fingerprint: "source-1",
+        metadata: { note_id: "note-1", body_hash: "hash" },
+        source_id: "source-1",
+        status: "processing",
+        title: "Processing source",
+        type: "note",
+        updated_at: new Date("2026-01-01T00:00:00Z"),
+      },
+    });
+
+    await expect(
+      retrySourceIngestion({
+        embeddings,
+        owner,
+        repository,
+        sourceId: "source-1",
+      }),
+    ).rejects.toThrow("Only ready or failed sources can be reprocessed");
+  });
+
   it("refuses unsupported answers without citations", async () => {
     const repository = createRepository();
     const embeddings = createEmbeddings();
@@ -456,7 +798,9 @@ describe("thin knowledge loop use cases", () => {
       repository,
     });
 
-    expect(result.answer).toContain("does not contain enough information");
+    expect(result.answer).toContain(
+      "could not find enough relevant saved knowledge",
+    );
     expect(result.citations).toEqual([]);
     expect(repository.recordAnswerCitations).toHaveBeenCalledWith(
       expect.objectContaining({ citations: [] }),
@@ -491,7 +835,7 @@ describe("thin knowledge loop use cases", () => {
       answers,
       embeddings,
       owner,
-      filters: { collectionId: "collection-1", tagId: "tag-1" },
+      filters: { collectionId: "collection-1" },
       question: "What should retrieval use?",
       repository,
     });
@@ -503,7 +847,7 @@ describe("thin knowledge loop use cases", () => {
     expect(result.citations[0]?.quote).toMatch(/\.\.\.$/);
     expect(repository.retrieveOwnedChunks).toHaveBeenCalledWith(
       expect.objectContaining({
-        filters: { collectionId: "collection-1", tagId: "tag-1" },
+        filters: { collectionId: "collection-1" },
       }),
     );
     expect(repository.recordRetrievalRun).toHaveBeenCalledWith(
@@ -511,7 +855,6 @@ describe("thin knowledge loop use cases", () => {
         filters: {
           collection_id: "collection-1",
           source_status: "ready",
-          tag_id: "tag-1",
         },
         owner,
         results: [expect.objectContaining({ chunkId: "chunk-1", rank: 1 })],

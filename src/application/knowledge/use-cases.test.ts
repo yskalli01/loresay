@@ -4,7 +4,10 @@ import { KnowledgeDomainError } from "@/domain/knowledge";
 
 import {
   createChatThread,
+  createCollection,
   createKnowledgeSource,
+  deleteCollections,
+  removeSourceFromCollection,
   recordAnswerCitations,
   recordChatMessage,
   recordExtractedContent,
@@ -33,8 +36,34 @@ const activeNoteSource = {
 function createRepository(): KnowledgeRepository {
   return {
     assertCollectionAndSourceShareOwner: vi.fn(),
-    assertTagAndSourceShareOwner: vi.fn(),
     ensureProfile: vi.fn(),
+    getProfile: vi.fn(async () => ({
+      avatarStoragePath: null,
+      avatarUpdatedAt: null,
+      createdAt: new Date("2026-01-01T00:00:00Z"),
+      displayName: null,
+      id: "user-1",
+      updatedAt: new Date("2026-01-01T00:00:00Z"),
+    })),
+    updateProfile: vi.fn(async ({ displayName }) => ({
+      avatarStoragePath: null,
+      avatarUpdatedAt: null,
+      createdAt: new Date("2026-01-01T00:00:00Z"),
+      displayName,
+      id: "user-1",
+      updatedAt: new Date("2026-01-01T00:00:00Z"),
+    })),
+    updateProfileAvatar: vi.fn(
+      async ({ avatarStoragePath, avatarUpdatedAt }) => ({
+        avatarStoragePath,
+        avatarUpdatedAt,
+        createdAt: new Date("2026-01-01T00:00:00Z"),
+        displayName: null,
+        id: "user-1",
+        updatedAt: new Date("2026-01-01T00:00:00Z"),
+      }),
+    ),
+    deleteProfile: vi.fn(),
     createChatThread: vi.fn(async ({ title }) => ({
       threadId: "thread-1",
       title,
@@ -61,14 +90,19 @@ function createRepository(): KnowledgeRepository {
         processingCount: 0,
         queuedCount: 0,
       },
+      metrics: {
+        noteSources: 0,
+        totalSources: 0,
+        unsortedSources: 0,
+      },
       sources: [],
-      tags: [],
     })),
     getDefaultChatThread: vi.fn(async () => null),
     getSourceForOwner: vi.fn(async () => activeNoteSource),
     listKnowledgeSources: vi.fn(async () => ({
       items: [],
       next_cursor: null,
+      total: 0,
     })),
     listArchivedSources: vi.fn(async () => []),
     exportOwnedKnowledge: vi.fn(async () => ({
@@ -80,29 +114,36 @@ function createRepository(): KnowledgeRepository {
       exported_at: new Date("2026-01-01T00:00:00Z"),
       retrieval_results: [],
       retrieval_runs: [],
-      source_tags: [],
       sources: [],
-      tags: [],
     })),
     purgeArchivedSource: vi.fn(async () => ({
       purgedAt: new Date("2026-01-01T00:00:00Z"),
       sourceId: "source-1",
     })),
     getSourceDetail: vi.fn(async () => null),
+    listSourceCitations: vi.fn(async () => []),
     listCollections: vi.fn(async () => []),
-    createCollection: vi.fn(async ({ name }) => ({
+    createCollection: vi.fn(async ({ imageUrl, name }) => ({
       collection_id: "collection-1",
+      created_at: new Date("2026-01-01T00:00:00Z"),
+      image_url: imageUrl ?? null,
       name,
       source_count: 0,
+      updated_at: new Date("2026-01-01T00:00:00Z"),
+    })),
+    deleteCollection: vi.fn(),
+    deleteCollections: vi.fn(),
+    getCollectionDetail: vi.fn(async () => null),
+    updateCollection: vi.fn(async ({ imageUrl, name }) => ({
+      collection_id: "collection-1",
+      created_at: new Date("2026-01-01T00:00:00Z"),
+      image_url: imageUrl,
+      name,
+      source_count: 0,
+      updated_at: new Date("2026-01-01T00:00:00Z"),
     })),
     addSourceToCollection: vi.fn(),
-    listTags: vi.fn(async () => []),
-    createTag: vi.fn(async ({ name }) => ({
-      name,
-      source_count: 0,
-      tag_id: "tag-1",
-    })),
-    addTagToSource: vi.fn(),
+    removeSourceFromCollection: vi.fn(),
     recordAnswerCitations: vi.fn(
       async ({ citations }: RecordAnswerCitationsInput) =>
         citations.map((citation, index) => ({
@@ -237,6 +278,72 @@ describe("knowledge use cases", () => {
         ],
       }),
     ).rejects.toThrow("Embedding dimensions do not match");
+  });
+
+  it("validates collection image URLs before saving", async () => {
+    const repository = createRepository();
+
+    await expect(
+      createCollection(repository, owner, {
+        imageUrl: "ftp://example.com/image.png",
+        name: "Research",
+      }),
+    ).rejects.toThrow("Use an HTTP or HTTPS image URL");
+
+    await createCollection(repository, owner, {
+      imageUrl: " https://example.com/image.png ",
+      name: " Research ",
+    });
+
+    expect(repository.createCollection).toHaveBeenCalledWith({
+      description: null,
+      imageUrl: "https://example.com/image.png",
+      name: "Research",
+      owner,
+    });
+
+    await createCollection(repository, owner, {
+      imageUrl: "user-1/123e4567-e89b-12d3-a456-426614174000.webp",
+      name: "Private image",
+    });
+
+    expect(repository.createCollection).toHaveBeenLastCalledWith({
+      description: null,
+      imageUrl: "user-1/123e4567-e89b-12d3-a456-426614174000.webp",
+      name: "Private image",
+      owner,
+    });
+  });
+
+  it("requires a selection for bulk collection deletion", async () => {
+    const repository = createRepository();
+
+    await expect(
+      deleteCollections(repository, owner, { collectionIds: [" "] }),
+    ).rejects.toThrow("Select at least one collection");
+    expect(repository.deleteCollections).not.toHaveBeenCalled();
+  });
+
+  it("removes a source only after validating collection ownership", async () => {
+    const repository = createRepository();
+
+    await removeSourceFromCollection(repository, owner, {
+      collectionId: "collection-1",
+      sourceId: "source-1",
+    });
+
+    expect(repository.assertCollectionAndSourceShareOwner).toHaveBeenCalledWith(
+      {
+        collectionId: "collection-1",
+        owner,
+        sourceId: "source-1",
+      },
+    );
+    expect(repository.removeSourceFromCollection).toHaveBeenCalledWith({
+      collectionId: "collection-1",
+      owner,
+      sourceId: "source-1",
+    });
   });
 
   it("defaults chat titles and validates chat roles", async () => {

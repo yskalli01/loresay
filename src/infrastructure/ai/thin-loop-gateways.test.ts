@@ -6,6 +6,7 @@ async function importGateways() {
     import("./thin-loop-gateways"),
     import("./stub-gateways"),
     import("../openai/thin-loop-gateways"),
+    import("../gemini/thin-loop-gateways"),
   ]);
 }
 
@@ -30,6 +31,43 @@ describe("thin loop AI gateway selection", () => {
 
     expect(selected.embeddingGateway).toBe(stub.stubEmbeddingGateway);
     expect(selected.answerGateway).toBe(stub.stubAnswerGateway);
+  });
+
+  it("uses Gemini for embeddings and answers when Gemini is selected", async () => {
+    stubBaseEnv();
+    vi.stubEnv("AI_PROVIDER", "gemini");
+    vi.stubEnv("ANSWER_PROVIDER", "gemini");
+    vi.stubEnv("GEMINI_API_KEY", "gemini-key");
+
+    const [selected, , , gemini] = await importGateways();
+
+    expect(selected.embeddingGateway).toBe(gemini.geminiEmbeddingGateway);
+    expect(selected.answerGateway).toBe(gemini.geminiAnswerGateway);
+  });
+
+  it("defaults to Gemini gateways when only a Gemini key is configured", async () => {
+    stubBaseEnv();
+    vi.stubEnv("GEMINI_API_KEY", "gemini-key");
+    vi.stubEnv("OPENAI_API_KEY", "");
+    vi.stubEnv("NODE_ENV", "development");
+
+    const [selected, , , gemini] = await importGateways();
+
+    expect(selected.embeddingGateway).toBe(gemini.geminiEmbeddingGateway);
+    expect(selected.answerGateway).toBe(gemini.geminiAnswerGateway);
+  });
+
+  it("uses Gemini for answers and OpenAI for embeddings when that split is selected", async () => {
+    stubBaseEnv();
+    vi.stubEnv("AI_PROVIDER", "openai");
+    vi.stubEnv("ANSWER_PROVIDER", "gemini");
+    vi.stubEnv("OPENAI_API_KEY", "openai-key");
+    vi.stubEnv("GEMINI_API_KEY", "gemini-key");
+
+    const [selected, , openai, gemini] = await importGateways();
+
+    expect(selected.embeddingGateway).toBe(openai.openAIEmbeddingGateway);
+    expect(selected.answerGateway).toBe(gemini.geminiAnswerGateway);
   });
 
   it("uses the OpenAI gateways when the OpenAI provider is selected, covers AC-3 and AC-5", async () => {

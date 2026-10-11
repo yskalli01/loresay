@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { getTableColumns } from "drizzle-orm";
+import { getTableConfig } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -18,14 +19,19 @@ import {
   retrievalRuns,
   sourceChunks,
   sourceContents,
-  sourceTags,
-  tags,
 } from "./schema";
 
 describe("core data model schema", () => {
   it("defines the source lineage tables needed for ingestion and retrieval", () => {
     expect(Object.keys(getTableColumns(profiles))).toEqual(
-      expect.arrayContaining(["id", "displayName", "createdAt", "updatedAt"]),
+      expect.arrayContaining([
+        "id",
+        "displayName",
+        "avatarStoragePath",
+        "avatarUpdatedAt",
+        "createdAt",
+        "updatedAt",
+      ]),
     );
     expect(Object.keys(getTableColumns(knowledgeSources))).toEqual(
       expect.arrayContaining([
@@ -76,17 +82,19 @@ describe("core data model schema", () => {
 
   it("defines organization and chat provenance tables", () => {
     expect(Object.keys(getTableColumns(collections))).toEqual(
-      expect.arrayContaining(["userId", "name"]),
+      expect.arrayContaining(["userId", "name", "description", "imageUrl"]),
     );
     expect(Object.keys(getTableColumns(collectionSources))).toEqual(
       expect.arrayContaining(["collectionId", "sourceId"]),
     );
-    expect(Object.keys(getTableColumns(tags))).toEqual(
-      expect.arrayContaining(["userId", "name"]),
+    const sourceIndex = getTableConfig(collectionSources).indexes.find(
+      (tableIndex) =>
+        tableIndex.config.name === "collection_sources_source_idx",
     );
-    expect(Object.keys(getTableColumns(sourceTags))).toEqual(
-      expect.arrayContaining(["sourceId", "tagId"]),
-    );
+
+    expect(sourceIndex?.config.columns[0]).toMatchObject({
+      name: "source_id",
+    });
     expect(Object.keys(getTableColumns(chatThreads))).toEqual(
       expect.arrayContaining(["userId", "title"]),
     );

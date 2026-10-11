@@ -9,6 +9,7 @@ import {
   deriveSourceFingerprint,
   deriveSourceTitle,
   initialSourceStatus,
+  KnowledgeDomainError,
   knowledgeLimits,
   type ChatRole,
   type IngestionJobStatus,
@@ -25,6 +26,7 @@ import type {
   KnowledgeRepository,
   OwnerContext,
   RetrievalResultInput,
+  CollectionListFilters,
   SourceListFilters,
 } from "./repositories";
 
@@ -177,6 +179,7 @@ export async function listKnowledgeSources(
   input: {
     cursor?: string;
     limit?: number;
+    offset?: number;
     filters?: SourceListFilters;
   } = {},
 ) {
@@ -186,11 +189,18 @@ export async function listKnowledgeSources(
     "Invalid page size",
     "invalid_page_size",
   );
+  invariant(
+    input.offset === undefined ||
+      (input.offset >= 0 && Number.isInteger(input.offset)),
+    "Invalid page offset",
+    "invalid_page_offset",
+  );
 
   return repository.listKnowledgeSources({
     owner,
     cursor: input.cursor,
     limit,
+    offset: input.offset,
     filters: input.filters ?? {},
   });
 }
@@ -209,35 +219,145 @@ export async function assertCollectionSourceLink(
   return repository.assertCollectionAndSourceShareOwner({ owner, ...input });
 }
 
-export async function assertSourceTagLink(
-  repository: KnowledgeRepository,
-  owner: OwnerContext,
-  input: { tagId: string; sourceId: KnowledgeSourceId },
-) {
-  return repository.assertTagAndSourceShareOwner({ owner, ...input });
-}
-
 export async function listCollections(
   repository: KnowledgeRepository,
   owner: OwnerContext,
+  input: { filters?: CollectionListFilters } = {},
 ) {
-  return repository.listCollections({ owner });
+  return repository.listCollections({ filters: input.filters, owner });
+}
+
+function normalizeCollectionImageUrl(
+  value: string | null | undefined,
+  owner: OwnerContext,
+) {
+  const imageUrl = value?.trim() ?? "";
+
+  if (!imageUrl) {
+    return null;
+  }
+
+  const ownerPath = imageUrl.slice(owner.userId.length + 1);
+  if (
+    imageUrl.startsWith(`${owner.userId}/`) &&
+    /^[0-9a-f-]+\.(jpg|png|webp)$/i.test(ownerPath)
+  ) {
+    return imageUrl;
+  }
+
+  assertWithinTextLimit("Collection image URL", imageUrl, 2000);
+
+  let parsed: URL;
+  try {
+    parsed = new URL(imageUrl);
+  } catch {
+    throw new KnowledgeDomainError(
+      "Enter a valid collection image URL",
+      "collection_image_url_invalid",
+    );
+  }
+
+  invariant(
+    parsed.protocol === "http:" || parsed.protocol === "https:",
+    "Use an HTTP or HTTPS image URL",
+    "collection_image_url_protocol",
+  );
+
+  return parsed.toString();
+}
+
+function normalizeCollectionName(name: string) {
+  const trimmed = name.trim();
+  assertWithinTextLimit("Collection name", trimmed, knowledgeLimits.title);
+  invariant(
+    trimmed.length > 0,
+    "Collection name is required",
+    "collection_name_required",
+  );
+  return trimmed;
+}
+
+function normalizeCollectionDescription(value?: string | null) {
+  const description = value?.trim() ?? "";
+  assertWithinTextLimit("Collection description", description, 1000);
+  return description || null;
 }
 
 export async function createCollection(
   repository: KnowledgeRepository,
   owner: OwnerContext,
-  input: { name: string },
+  input: {
+    description?: string | null;
+    imageUrl?: string | null;
+    name: string;
+  },
 ) {
-  const name = input.name.trim();
-  assertWithinTextLimit("Collection name", name, knowledgeLimits.title);
+  return repository.createCollection({
+    description: normalizeCollectionDescription(input.description),
+    imageUrl: normalizeCollectionImageUrl(input.imageUrl, owner),
+    name: normalizeCollectionName(input.name),
+    owner,
+  });
+}
+
+export async function updateCollection(
+  repository: KnowledgeRepository,
+  owner: OwnerContext,
+  input: {
+    collectionId: string;
+    description?: string | null;
+    imageUrl?: string | null;
+    name: string;
+  },
+) {
   invariant(
-    name.length > 0,
-    "Collection name is required",
-    "collection_name_required",
+    input.collectionId.trim().length > 0,
+    "Collection is required",
+    "collection_required",
   );
 
-  return repository.createCollection({ owner, name });
+  return repository.updateCollection({
+    collectionId: input.collectionId.trim(),
+    description: normalizeCollectionDescription(input.description),
+    imageUrl: normalizeCollectionImageUrl(input.imageUrl, owner),
+    name: normalizeCollectionName(input.name),
+    owner,
+  });
+}
+
+export async function deleteCollection(
+  repository: KnowledgeRepository,
+  owner: OwnerContext,
+  input: { collectionId: string },
+) {
+  invariant(
+    input.collectionId.trim().length > 0,
+    "Collection is required",
+    "collection_required",
+  );
+
+  await repository.deleteCollection({
+    collectionId: input.collectionId.trim(),
+    owner,
+  });
+}
+
+export async function deleteCollections(
+  repository: KnowledgeRepository,
+  owner: OwnerContext,
+  input: { collectionIds: string[] },
+) {
+  const collectionIds = Array.from(
+    new Set(input.collectionIds.map((id) => id.trim()).filter(Boolean)),
+  );
+
+  invariant(
+    collectionIds.length > 0,
+    "Select at least one collection",
+    "collection_selection_required",
+  );
+
+  await repository.deleteCollections({ collectionIds, owner });
 }
 
 export async function addSourceToCollection(
@@ -249,33 +369,15 @@ export async function addSourceToCollection(
   await repository.addSourceToCollection({ owner, ...input });
 }
 
-export async function listTags(
+export async function removeSourceFromCollection(
   repository: KnowledgeRepository,
   owner: OwnerContext,
+  input: { collectionId: string; sourceId: KnowledgeSourceId },
 ) {
-  return repository.listTags({ owner });
+  await assertCollectionSourceLink(repository, owner, input);
+  await repository.removeSourceFromCollection({ owner, ...input });
 }
 
-export async function createTag(
-  repository: KnowledgeRepository,
-  owner: OwnerContext,
-  input: { name: string },
-) {
-  const name = input.name.trim();
-  assertWithinTextLimit("Tag name", name, knowledgeLimits.tagName);
-  invariant(name.length > 0, "Tag name is required", "tag_name_required");
-
-  return repository.createTag({ owner, name });
-}
-
-export async function addTagToSource(
-  repository: KnowledgeRepository,
-  owner: OwnerContext,
-  input: { tagId: string; sourceId: KnowledgeSourceId },
-) {
-  await assertSourceTagLink(repository, owner, input);
-  await repository.addTagToSource({ owner, ...input });
-}
 export async function createChatThread(
   repository: KnowledgeRepository,
   owner: OwnerContext,
@@ -366,6 +468,7 @@ export type {
   ContentChunkInput,
   EmbeddingInput,
   IngestionJobStatus,
+  CollectionListFilters,
   RetrievalResultInput,
   SourceListFilters,
   SourceType,

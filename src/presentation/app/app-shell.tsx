@@ -1,16 +1,87 @@
+/* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
-import { BrainCircuit, ChevronRight } from "lucide-react";
+import {
+  ChevronRight,
+  LogOut,
+  Search,
+  Settings,
+  Trash2,
+  UserCircle,
+} from "lucide-react";
 import type { ReactNode } from "react";
 
+import { signOut } from "@/app/auth/actions";
+import { requireSessionUser } from "@/infrastructure/auth/session";
+import { knowledgeRepository } from "@/infrastructure/db/knowledge-repository";
+import { createAvatarSignedUrl } from "@/infrastructure/supabase/account-storage";
 import { cn } from "@/presentation/lib/utils";
-import { Badge, Sheet } from "@/presentation/ui";
+import { BrandMark, Sheet } from "@/presentation/ui";
 
 import { navigationItems, type NavigationItem } from "./navigation";
+import { ThemeToggle } from "./theme-toggle";
 
 type AppShellProps = {
   children: ReactNode;
   activePath?: string;
 };
+
+type AccountSummary = {
+  avatarUrl: string | null;
+  displayName: string;
+  email: string;
+};
+
+function initialsForAccount(account: AccountSummary) {
+  return (account.displayName || account.email || "U")
+    .split(/\s|@/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+}
+
+async function getAccountSummary(): Promise<AccountSummary> {
+  const user = await requireSessionUser();
+  const profile = await knowledgeRepository.getProfile({
+    owner: { userId: user.id },
+  });
+  const email = user.email ?? "";
+  const displayName = profile?.displayName || email.split("@")[0] || "Account";
+  const avatarUrl = await createAvatarSignedUrl(
+    profile?.avatarStoragePath ?? null,
+  );
+
+  return { avatarUrl, displayName, email };
+}
+
+function AccountAvatar({
+  account,
+  size = "sm",
+}: {
+  account: AccountSummary;
+  size?: "sm" | "lg";
+}) {
+  const initials = initialsForAccount(account);
+
+  return (
+    <span
+      className={cn(
+        "flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-border-subtle bg-accent-tint font-bold text-accent",
+        size === "lg" ? "h-12 w-12 text-base" : "h-9 w-9 text-xs",
+      )}
+    >
+      {account.avatarUrl ? (
+        <img
+          alt="Profile avatar"
+          className="h-full w-full object-cover"
+          src={account.avatarUrl}
+        />
+      ) : (
+        initials || <UserCircle className="h-5 w-5" aria-hidden="true" />
+      )}
+    </span>
+  );
+}
 
 function NavLink({
   activePath,
@@ -30,27 +101,24 @@ function NavLink({
     <Link
       aria-current={isActive ? "page" : undefined}
       className={cn(
-        "group relative flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-medium transition",
+        "group relative flex min-h-9 items-center gap-2.5 rounded-md px-3 text-xs font-medium transition",
         isActive
-          ? "bg-accent text-on-accent shadow-sm"
+          ? "bg-accent-tint text-accent-strong"
           : "text-body hover:bg-surface-subtle hover:text-ink",
-        compact && "justify-between",
+        compact && "justify-between text-sm",
       )}
       href={item.href}
     >
-      <span className="flex items-center gap-3">
+      <span className="flex items-center gap-2.5">
         <Icon
           className={cn(
-            "h-5 w-5 transition",
-            isActive ? "text-on-accent" : "text-muted group-hover:text-accent",
+            "h-4 w-4 transition",
+            isActive ? "text-accent" : "text-muted group-hover:text-accent",
           )}
           aria-hidden="true"
         />
         {item.label}
       </span>
-      {item.status === "planned" && !isActive ? (
-        <Badge className="hidden sm:inline-flex">soon</Badge>
-      ) : null}
       {compact ? <ChevronRight className="h-4 w-4" aria-hidden="true" /> : null}
     </Link>
   );
@@ -59,8 +127,8 @@ function NavLink({
 function NavigationList({ activePath }: { activePath: string }) {
   return (
     <ul className="space-y-1">
-      {navigationItems.map((item) => (
-        <li key={item.href}>
+      {navigationItems.map((item, index) => (
+        <li key={`${item.label}-${index}`}>
           <NavLink activePath={activePath} item={item} />
         </li>
       ))}
@@ -68,89 +136,131 @@ function NavigationList({ activePath }: { activePath: string }) {
   );
 }
 
-export function AppShell({ activePath = "/", children }: AppShellProps) {
+function TopSearch() {
   return (
-    <div className="min-h-screen text-ink">
+    <label className="relative hidden min-w-0 flex-1 md:block">
+      <span className="sr-only">Search your knowledge base</span>
+      <Search
+        className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted"
+        aria-hidden="true"
+      />
+      <input
+        className="h-9 w-full max-w-[360px] rounded-md border border-border-subtle bg-surface-raised pl-8 pr-3 text-xs text-ink shadow-control transition placeholder:text-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+        placeholder="Search your knowledge..."
+        type="search"
+      />
+    </label>
+  );
+}
+
+function HeaderActions({ account }: { account: AccountSummary }) {
+  return (
+    <div className="flex items-center gap-2">
+      <ThemeToggle />
+      <details className="group relative">
+        <summary
+          aria-label="Account"
+          className="flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-full text-body ring-1 ring-border-subtle transition hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 [&::-webkit-details-marker]:hidden"
+        >
+          <AccountAvatar account={account} />
+        </summary>
+        <div className="absolute right-0 top-11 z-30 w-72 rounded-lg border border-border-subtle bg-surface p-2 shadow-panel">
+          <div className="flex items-center gap-3 border-b border-border-subtle px-2 pb-3 pt-2">
+            <AccountAvatar account={account} size="lg" />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold text-ink">
+                {account.displayName}
+              </p>
+              <p className="truncate text-xs text-body">{account.email}</p>
+            </div>
+          </div>
+          <div className="py-2">
+            <Link
+              className="flex h-10 items-center gap-3 rounded-md px-3 text-sm font-semibold text-body transition hover:bg-accent-tint hover:text-accent"
+              href="/account"
+            >
+              <Settings className="h-4 w-4" aria-hidden="true" />
+              Account settings
+            </Link>
+            <Link
+              className="flex h-10 items-center gap-3 rounded-md px-3 text-sm font-semibold text-body transition hover:bg-surface-subtle hover:text-ink"
+              href="/account#account-closure"
+            >
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
+              Delete account
+            </Link>
+          </div>
+          <form action={signOut} className="border-t border-border-subtle pt-2">
+            <button
+              className="flex h-10 w-full items-center gap-3 rounded-md px-3 text-left text-sm font-semibold text-error transition hover:bg-error-tint"
+              type="submit"
+            >
+              <LogOut className="h-4 w-4" aria-hidden="true" />
+              Sign out
+            </button>
+          </form>
+        </div>
+      </details>
+    </div>
+  );
+}
+
+export async function AppShell({ activePath = "/", children }: AppShellProps) {
+  const account = await getAccountSummary();
+
+  return (
+    <div className="min-h-screen bg-canvas text-ink">
       <a
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-surface focus:px-4 focus:py-2 focus:text-accent focus:shadow-panel"
         href="#main-content"
       >
         Skip to content
       </a>
-      <header className="sticky top-0 z-10 border-b border-border-subtle bg-surface/95 px-4 py-3 backdrop-blur md:hidden">
+      <header className="sticky top-0 z-20 border-b border-border-subtle bg-surface/95 px-4 py-3 backdrop-blur md:hidden">
         <div className="flex items-center justify-between gap-3">
-          <Link
-            className="flex min-h-11 items-center gap-2 font-semibold"
-            href="/"
-          >
-            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-accent text-on-accent shadow-sm">
-              <BrainCircuit className="h-5 w-5" aria-hidden="true" />
-            </span>
-            AI Knowledge
+          <Link className="flex min-h-10 items-center gap-2 font-bold" href="/">
+            <BrandMark className="h-8 w-8 rounded-md" />
+            Knowledge Base
           </Link>
-          <Sheet label="Menu">
-            <nav aria-label="Mobile navigation">
-              <ul className="space-y-1">
-                {navigationItems.map((item) => (
-                  <li key={item.href}>
-                    <NavLink activePath={activePath} compact item={item} />
-                  </li>
-                ))}
-              </ul>
-            </nav>
-          </Sheet>
+          <div className="flex items-center gap-2">
+            <HeaderActions account={account} />
+            <Sheet label="Menu">
+              <nav aria-label="Mobile navigation">
+                <ul className="space-y-1">
+                  {navigationItems.map((item, index) => (
+                    <li key={`${item.label}-${index}`}>
+                      <NavLink activePath={activePath} compact item={item} />
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            </Sheet>
+          </div>
         </div>
       </header>
 
-      <div className="mx-auto grid min-h-screen w-full max-w-[1480px] md:grid-cols-[292px_1fr]">
-        <aside className="hidden border-r border-border-subtle bg-surface/90 px-4 py-6 shadow-card backdrop-blur md:block">
-          <div className="sticky top-6">
-            <Link
-              className="flex min-h-12 items-center gap-3 rounded-md px-2 transition hover:bg-surface-subtle"
-              href="/"
-            >
-              <span className="flex h-11 w-11 items-center justify-center rounded-md bg-accent text-on-accent shadow-sm">
-                <BrainCircuit className="h-5 w-5" aria-hidden="true" />
-              </span>
-              <span>
-                <span className="block text-sm font-semibold text-ink">
-                  AI Knowledge
-                </span>
-                <span className="block text-xs text-muted">
-                  Private workspace
-                </span>
-              </span>
+      <div className="mx-auto grid min-h-screen w-full max-w-[1440px] md:grid-cols-[176px_minmax(0,1fr)]">
+        <aside className="hidden border-r border-border-subtle bg-surface px-4 py-5 md:block">
+          <div className="sticky top-5 flex h-[calc(100vh-2.5rem)] flex-col">
+            <Link className="flex min-h-9 items-center gap-2" href="/">
+              <BrandMark className="h-7 w-7 rounded-md" />
+              <span className="text-xs font-bold text-ink">Knowledge Base</span>
             </Link>
             <nav aria-label="Primary navigation" className="mt-7">
-              <p className="px-3 text-xs font-semibold uppercase tracking-wide text-muted">
-                Workspace
-              </p>
-              <div className="mt-3">
-                <NavigationList activePath={activePath} />
-              </div>
+              <NavigationList activePath={activePath} />
             </nav>
-            <section
-              aria-labelledby="shell-status-title"
-              className="mt-8 rounded-md border border-border-subtle bg-accent-tint p-4"
-            >
-              <Badge tone="accent">Live MVP</Badge>
-              <h2
-                className="mt-3 text-sm font-semibold text-ink"
-                id="shell-status-title"
-              >
-                Workspace status
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-body">
-                Capture, ingestion, source management, and grounded chat now
-                have focused pages.
-              </p>
-            </section>
           </div>
         </aside>
 
-        <main className="min-w-0 px-4 py-6 sm:px-6 lg:px-8" id="main-content">
-          {children}
-        </main>
+        <div className="min-w-0">
+          <header className="sticky top-0 z-10 hidden h-14 items-center gap-4 border-b border-border-subtle bg-canvas/92 px-5 backdrop-blur md:flex">
+            <TopSearch />
+            <HeaderActions account={account} />
+          </header>
+          <main className="min-w-0 p-4 sm:p-5" id="main-content">
+            {children}
+          </main>
+        </div>
       </div>
     </div>
   );

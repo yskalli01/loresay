@@ -12,6 +12,8 @@ import {
 } from "./client";
 
 export const openAIEmbeddingGateway: EmbeddingGateway = {
+  model: "text-embedding-3-small",
+  provider: "openai",
   embed: createEmbedding,
   embedMany: createEmbeddings,
 };
@@ -48,3 +50,4 @@ export const openAIAnswerGateway: AnswerGateway = {
     }
   },
 };
+

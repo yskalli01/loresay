@@ -1,14 +1,22 @@
+import { Plus } from "lucide-react";
+import Link from "next/link";
+
 import { requireSessionUser } from "@/infrastructure/auth/session";
 import { knowledgeRepository } from "@/infrastructure/db/knowledge-repository";
 import { AppShell } from "@/presentation/app/app-shell";
-import { OrganizationPanel } from "@/presentation/app/organization-panel";
-import { PrivacyLifecyclePanel } from "@/presentation/app/privacy-lifecycle-panel";
-import { PageHeader } from "@/presentation/app/page-header";
 import {
   parseSourceFilters,
   SourceFilterBar,
 } from "@/presentation/app/source-filter-bar";
-import { SourceSummaryGrid } from "@/presentation/app/source-summary-grid";
+import { SourceLibraryTable } from "@/presentation/app/source-library-table";
+import { Button } from "@/presentation/ui";
+
+const sourceTabs = [
+  { href: "/sources", label: "All" },
+  { href: "/sources?type=note", label: "Notes" },
+  { href: "/sources?type=document", label: "Documents" },
+  { href: "/sources?type=url", label: "URLs" },
+];
 
 export default async function SourcesPage(props?: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -17,62 +25,58 @@ export default async function SourcesPage(props?: {
   const owner = { userId: user.id };
   const searchParams = props?.searchParams ? await props.searchParams : {};
   const filters = parseSourceFilters(searchParams);
-  const [archivedSources, dashboard, sourceList] = await Promise.all([
-    knowledgeRepository.listArchivedSources({ limit: 12, owner }),
-    knowledgeRepository.getDashboardSummary({ owner }),
+  const [sourceList, collections] = await Promise.all([
     knowledgeRepository.listKnowledgeSources({
       filters,
       limit: 24,
       owner,
     }),
+    knowledgeRepository.listCollections({ owner }),
   ]);
-  const hasFilters = Object.values(filters).some(Boolean);
 
   return (
     <AppShell activePath="/sources">
-      <div className="space-y-6">
-        <PageHeader
-          badge="Source manager"
-          description="Browse saved knowledge, filter it by status or organization, and open source detail pages for metadata, extracted text, lifecycle controls, collections, and tags."
-          title="Sources"
-        />
+      <div className="space-y-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-normal text-ink">
+              Sources
+            </h1>
+            <p className="mt-1 text-sm text-body">
+              Browse, filter, and manage all your saved sources.
+            </p>
+          </div>
+          <Link href="/new-source">
+            <Button icon={<Plus className="h-4 w-4" />}>Add Source</Button>
+          </Link>
+        </div>
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-          <section aria-labelledby="sources-title" className="space-y-4">
-            <div>
-              <h2 className="text-xl font-semibold text-ink" id="sources-title">
-                Source library
-              </h2>
-              <p className="mt-1 text-sm text-body">
-                Filter your private knowledge by source type, status,
-                collection, tag, or title.
-              </p>
-            </div>
+        <SourceFilterBar collections={collections} filters={filters} />
 
-            <SourceFilterBar
-              collections={dashboard.collections}
-              filters={filters}
-              tags={dashboard.tags}
-            />
+        <div className="space-y-4 rounded-lg border border-border-subtle bg-surface p-4 shadow-card">
+          <div className="flex flex-wrap items-center gap-2">
+            {sourceTabs.map((tab) => {
+              const active =
+                (!filters.type && tab.label === "All") ||
+                tab.href.endsWith(`=${filters.type}`);
 
-            <SourceSummaryGrid
-              emptyDescription={
-                hasFilters
-                  ? "No saved sources match those filters."
-                  : "Save your first note, document, or URL to make it available for grounded answers."
-              }
-              emptyTitle={hasFilters ? "No matching sources" : "No sources yet"}
-              sources={sourceList.items}
-            />
-          </section>
+              return (
+                <Link
+                  className={
+                    active
+                      ? "inline-flex h-9 items-center rounded-md bg-accent px-3 text-xs font-semibold text-on-accent shadow-control"
+                      : "inline-flex h-9 items-center rounded-md border border-border-subtle bg-surface-raised px-3 text-xs font-semibold text-body hover:bg-surface-subtle"
+                  }
+                  href={tab.href}
+                  key={tab.label}
+                >
+                  {tab.label}
+                </Link>
+              );
+            })}
+          </div>
 
-          <aside className="space-y-6" aria-label="Source organization">
-            <PrivacyLifecyclePanel archivedSources={archivedSources} />
-            <OrganizationPanel
-              collections={dashboard.collections}
-              tags={dashboard.tags}
-            />
-          </aside>
+          <SourceLibraryTable sources={sourceList.items} />
         </div>
       </div>
     </AppShell>

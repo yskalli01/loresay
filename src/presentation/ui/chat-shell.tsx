@@ -9,7 +9,7 @@ export function ChatShellPreview() {
   return (
     <Card className="p-5">
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-accent text-on-accent">
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent-tint text-accent ring-1 ring-accent/15">
           <Bot className="h-5 w-5" aria-hidden="true" />
         </div>
         <div>
@@ -19,7 +19,7 @@ export function ChatShellPreview() {
           <p className="text-sm text-body">Answers will cite saved sources.</p>
         </div>
       </div>
-      <div className="mt-5 rounded-md border border-border-subtle bg-surface-subtle p-4">
+      <div className="mt-5 rounded-lg border border-border-subtle bg-surface-subtle p-4 shadow-control">
         <p className="text-sm leading-6 text-body">
           Start with a question about your saved notes, documents, or links. The
           first live chat path lands in the thin knowledge loop.

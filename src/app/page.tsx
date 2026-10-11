@@ -1,282 +1,173 @@
-import {
-  AlertTriangle,
-  ArrowRight,
-  Bot,
-  Clock3,
-  Database,
-  Inbox,
-  Link2,
-  StickyNote,
-} from "lucide-react";
+import { Bot, Database, FilePlus2, Plus } from "lucide-react";
 import Link from "next/link";
 
+import type { CollectionSummaryDto } from "@/application/knowledge/repositories";
 import { requireSessionUser } from "@/infrastructure/auth/session";
 import { knowledgeRepository } from "@/infrastructure/db/knowledge-repository";
 import { AppShell } from "@/presentation/app/app-shell";
-import { MetricCard, StatusCount } from "@/presentation/app/knowledge-metrics";
+import { MetricCard } from "@/presentation/app/knowledge-metrics";
 import { PageHeader } from "@/presentation/app/page-header";
 import { formatDisplayDate } from "@/presentation/lib/format-date";
-import { SourceSummaryGrid } from "@/presentation/app/source-summary-grid";
-import {
-  Badge,
-  Button,
-  Card,
-  CardBody,
-  CardHeader,
-  Table,
-  TableCell,
-  TableHeaderCell,
-} from "@/presentation/ui";
+import { Badge, Card, CardBody, CardHeader } from "@/presentation/ui";
 
-import { signOut } from "./auth/actions";
-
-const workspaceLinks = [
-  {
-    description: "Capture and revise your saved text notes.",
-    href: "/notes",
-    icon: StickyNote,
-    label: "Notes",
-  },
-  {
-    description: "Add URLs and supported text documents.",
-    href: "/ingestion",
-    icon: Link2,
-    label: "Ingestion",
-  },
-  {
-    description: "Ask grounded questions with collection and tag scope.",
-    href: "/chat",
-    icon: Bot,
-    label: "Chat with AI",
-  },
-  {
-    description: "Browse, filter, organize, and inspect every source.",
-    href: "/sources",
-    icon: Database,
-    label: "Sources",
-  },
+const quickActions = [
+  { href: "/new-source", icon: Plus, label: "New Source" },
+  { href: "/chat", icon: Bot, label: "Start Chat" },
 ];
+
+const recentActivityLimit = 5;
+const topCollectionsLimit = 5;
+
+function bySourceCountDesc(
+  left: CollectionSummaryDto,
+  right: CollectionSummaryDto,
+) {
+  return (
+    right.source_count - left.source_count ||
+    left.name.localeCompare(right.name)
+  );
+}
 
 export default async function Home() {
   const user = await requireSessionUser();
   const owner = { userId: user.id };
-  const [dashboard, recentSources] = await Promise.all([
-    knowledgeRepository.getDashboardSummary({ owner }),
-    knowledgeRepository.listKnowledgeSources({ limit: 24, owner }),
-  ]);
-  const sources = recentSources.items;
-  const readyCount = sources.filter(
-    (source) => source.status === "ready",
-  ).length;
-  const failedCount = sources.filter(
-    (source) => source.status === "failed",
-  ).length;
+  const dashboard = await knowledgeRepository.getDashboardSummary({ owner });
+  const recentSources = dashboard.sources.slice(0, recentActivityLimit);
+  const topCollections = [...dashboard.collections]
+    .sort(bySourceCountDesc)
+    .slice(0, topCollectionsLimit);
 
   return (
     <AppShell activePath="/">
-      <div className="space-y-6">
+      <div className="space-y-5">
         <PageHeader
-          actions={
-            <form action={signOut}>
-              <Button variant="secondary" type="submit">
-                Sign out
-              </Button>
-            </form>
-          }
-          badge="Knowledge workspace"
-          description="Your private knowledge base is now organized by task, so capture, ingestion, organization, and chat each have room to breathe."
-          title="Overview"
+          badge="Dashboard"
+          description="Overview of your knowledge, recent activity, and quick actions."
+          title="Good morning, Alex"
         />
 
-        <section aria-labelledby="overview-metrics-title">
-          <h2 className="sr-only" id="overview-metrics-title">
-            Knowledge metrics
+        <section aria-labelledby="quick-add-title" className="space-y-3">
+          <h2 className="text-sm font-bold text-ink" id="quick-add-title">
+            Quick Add
           </h2>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <MetricCard
-              detail="Visible active sources"
-              label="Sources"
-              value={sources.length}
-            />
-            <MetricCard
-              detail="Eligible for retrieval"
-              label="Ready"
-              value={readyCount}
-            />
-            <MetricCard
-              detail="Saved organization groups"
-              label="Collections"
-              value={dashboard.collections.length}
-            />
-            <MetricCard
-              detail="Need attention or retry"
-              label="Failed"
-              value={failedCount}
-            />
-          </div>
-        </section>
-
-        <section aria-labelledby="workspace-pages-title" className="space-y-4">
-          <div>
-            <h2
-              className="text-xl font-semibold text-ink"
-              id="workspace-pages-title"
-            >
-              Main pages
-            </h2>
-            <p className="mt-1 text-sm text-body">
-              Each feature has its own page in the sidebar, with this overview
-              reserved for status and recent work.
-            </p>
-          </div>
-          <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-4">
-            {workspaceLinks.map((item) => {
-              const Icon = item.icon;
+          <div className="grid gap-3 sm:grid-cols-2">
+            {quickActions.map((action) => {
+              const Icon = action.icon;
 
               return (
                 <Link
-                  className="group rounded-md border border-border-subtle bg-surface p-5 shadow-card transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-panel"
-                  href={item.href}
-                  key={item.href}
+                  className="flex min-h-24 flex-col items-center justify-center gap-2 rounded-lg border border-border-subtle bg-surface text-sm font-semibold text-accent-strong shadow-card transition hover:-translate-y-0.5 hover:border-accent/25 hover:bg-accent-tint"
+                  href={action.href}
+                  key={action.label}
                 >
-                  <span className="flex h-11 w-11 items-center justify-center rounded-md bg-accent-tint text-accent ring-1 ring-accent/10 transition group-hover:bg-accent-soft">
-                    <Icon className="h-5 w-5" aria-hidden="true" />
-                  </span>
-                  <span className="mt-4 flex items-center justify-between gap-3">
-                    <span className="text-base font-semibold text-ink">
-                      {item.label}
-                    </span>
-                    <ArrowRight
-                      className="h-4 w-4 text-accent transition group-hover:translate-x-1"
-                      aria-hidden="true"
-                    />
-                  </span>
-                  <span className="mt-2 block text-sm leading-6 text-body">
-                    {item.description}
-                  </span>
+                  <Icon className="h-5 w-5" aria-hidden="true" />
+                  {action.label}
                 </Link>
               );
             })}
           </div>
         </section>
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-          <section aria-labelledby="recent-sources-title" className="space-y-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <h2
-                  className="text-xl font-semibold text-ink"
-                  id="recent-sources-title"
-                >
-                  Recent sources
-                </h2>
-                <p className="mt-1 text-sm text-body">
-                  A quick look at the latest notes, documents, and URLs.
-                </p>
-              </div>
-              <Link
-                className="inline-flex min-h-11 items-center rounded-md border border-border-subtle bg-surface-raised px-4 text-sm font-medium text-ink shadow-sm transition hover:border-border hover:bg-surface-subtle"
-                href="/sources"
-              >
-                View all sources
-              </Link>
-            </div>
-            <SourceSummaryGrid
-              emptyDescription="Add a note, upload a document, or ingest a URL to start building your knowledge base."
-              emptyTitle="No sources yet"
-              sources={dashboard.sources}
+        <section aria-labelledby="overview-metrics-title">
+          <h2 className="sr-only" id="overview-metrics-title">
+            Knowledge metrics
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <MetricCard
+              detail="Total Sources"
+              label="Sources"
+              value={dashboard.metrics.totalSources}
             />
-          </section>
+            <MetricCard
+              detail="Collections"
+              label="Collections"
+              value={dashboard.collections.length}
+            />
+            <MetricCard
+              detail="Note Sources"
+              label="Notes"
+              value={dashboard.metrics.noteSources}
+            />
+            <MetricCard
+              detail="Not in a Collection"
+              label="Unsorted"
+              value={dashboard.metrics.unsortedSources}
+            />
+          </div>
+        </section>
 
-          <aside className="space-y-6" aria-label="Overview side panels">
-            <Card>
-              <CardHeader>
-                <h2 className="text-base font-semibold text-ink">
-                  Ingestion status
-                </h2>
-                <p className="mt-1 text-sm text-body">
-                  Processing health across saved sources.
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <Card>
+            <CardHeader>
+              <h2 className="text-base font-bold text-ink">Recent Activity</h2>
+            </CardHeader>
+            <CardBody className="space-y-3">
+              {recentSources.length > 0 ? (
+                recentSources.map((source) => (
+                  <Link
+                    className="flex items-center gap-3 rounded-md border border-border-subtle bg-surface-raised p-3 transition hover:bg-surface-subtle"
+                    href={`/sources/${source.source_id}`}
+                    key={source.source_id}
+                  >
+                    <span className="flex h-9 w-9 items-center justify-center rounded-md bg-accent-tint text-accent">
+                      <Database className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold text-ink">
+                        {source.title}
+                      </span>
+                      <span className="text-xs text-muted">
+                        {formatDisplayDate(source.updated_at)}
+                      </span>
+                    </span>
+                    <Badge
+                      tone={
+                        source.status === "ready" ? "completed" : "processing"
+                      }
+                    >
+                      {source.status}
+                    </Badge>
+                  </Link>
+                ))
+              ) : (
+                <p className="rounded-md bg-surface-subtle p-4 text-sm text-body">
+                  No activity yet. Add a note, upload a file, or save a URL.
                 </p>
-              </CardHeader>
-              <CardBody className="space-y-4">
-                <div className="grid grid-cols-3 gap-3">
-                  <StatusCount
-                    icon={<Inbox className="h-4 w-4" />}
-                    label="Queued"
-                    value={dashboard.ingestion.queuedCount}
-                  />
-                  <StatusCount
-                    icon={<Clock3 className="h-4 w-4" />}
-                    label="Processing"
-                    value={dashboard.ingestion.processingCount}
-                  />
-                  <StatusCount
-                    icon={<AlertTriangle className="h-4 w-4" />}
-                    label="Failed"
-                    value={dashboard.ingestion.failedCount}
-                  />
-                </div>
-                <p className="rounded-md bg-surface-subtle p-3 text-sm leading-6 text-body">
-                  {dashboard.ingestion.latestActivity
-                    ? `Last processing activity ${formatDisplayDate(dashboard.ingestion.latestActivity)}`
-                    : "No processing activity yet"}
-                </p>
-              </CardBody>
-            </Card>
+              )}
+            </CardBody>
+          </Card>
 
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h2 className="text-base font-semibold text-ink">
-                      Recent activity
-                    </h2>
-                    <p className="mt-1 text-sm text-body">
-                      Latest source updates across the workspace.
-                    </p>
+          <Card>
+            <CardHeader>
+              <h2 className="text-base font-bold text-ink">Top Collections</h2>
+            </CardHeader>
+            <CardBody className="space-y-3">
+              {topCollections.length > 0 ? (
+                topCollections.map((collection) => (
+                  <div
+                    className="flex items-center gap-3 rounded-md border border-border-subtle bg-surface-raised p-3"
+                    key={collection.collection_id}
+                  >
+                    <span className="flex h-9 w-9 items-center justify-center rounded-md bg-accent-tint text-accent">
+                      <FilePlus2 className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-ink">
+                        {collection.name}
+                      </p>
+                      <p className="text-xs text-muted">
+                        {collection.source_count} sources
+                      </p>
+                    </div>
                   </div>
-                  <Badge>read only</Badge>
-                </div>
-              </CardHeader>
-              <CardBody className="p-0">
-                <Table>
-                  <thead>
-                    <tr>
-                      <TableHeaderCell>Source</TableHeaderCell>
-                      <TableHeaderCell>Status</TableHeaderCell>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {dashboard.sources.map((source) => (
-                      <tr key={source.source_id}>
-                        <TableCell className="font-medium text-ink">
-                          <Link
-                            className="hover:text-accent"
-                            href={`/sources/${source.source_id}`}
-                          >
-                            {source.title}
-                          </Link>
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            tone={
-                              source.status === "ready"
-                                ? "success"
-                                : source.status === "failed"
-                                  ? "error"
-                                  : "warning"
-                            }
-                          >
-                            {source.status}
-                          </Badge>
-                        </TableCell>
-                      </tr>
-                    ))}
-                  </tbody>
-                </Table>
-              </CardBody>
-            </Card>
-          </aside>
+                ))
+              ) : (
+                <p className="rounded-md bg-surface-subtle p-4 text-sm text-body">
+                  Collections appear here after you create them.
+                </p>
+              )}
+            </CardBody>
+          </Card>
         </div>
       </div>
     </AppShell>

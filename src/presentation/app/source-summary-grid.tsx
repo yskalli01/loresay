@@ -8,6 +8,7 @@ type SourceSummaryGridProps = {
   emptyDescription: string;
   emptyTitle: string;
   editableNotes?: boolean;
+  layout?: "default" | "wide";
   sources: SourceSummaryDto[];
 };
 
@@ -15,6 +16,7 @@ export function SourceSummaryGrid({
   editableNotes = false,
   emptyDescription,
   emptyTitle,
+  layout = "default",
   sources,
 }: SourceSummaryGridProps) {
   if (sources.length === 0) {
@@ -22,7 +24,13 @@ export function SourceSummaryGrid({
   }
 
   return (
-    <div className="grid gap-5 xl:grid-cols-2 2xl:grid-cols-3">
+    <div
+      className={
+        layout === "wide"
+          ? "grid gap-5 xl:grid-cols-2"
+          : "grid gap-5 xl:grid-cols-2 2xl:grid-cols-3"
+      }
+    >
       {sources.map((source) => (
         <SourceCard
           key={source.source_id}

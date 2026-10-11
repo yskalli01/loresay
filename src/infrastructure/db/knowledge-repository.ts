@@ -1,4 +1,14 @@
-import { and, desc, eq, ilike, isNotNull, isNull, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  or,
+  isNotNull,
+  isNull,
+  sql,
+} from "drizzle-orm";
 
 import type {
   AnswerCitationInput,
@@ -6,6 +16,7 @@ import type {
   EmbeddingInput,
   KnowledgeRepository,
   OwnerContext,
+  ProfileDto,
   RetrievalChunkDto,
   RetrievalResultInput,
 } from "@/application/knowledge/repositories";
@@ -33,12 +44,21 @@ import {
   retrievalRuns,
   sourceChunks,
   sourceContents,
-  sourceTags,
-  tags,
 } from "./schema";
 
 function vectorLiteral(embedding: number[]) {
   return `[${embedding.map((value) => Number(value).toFixed(8)).join(",")}]`;
+}
+
+function profileDto(row: typeof profiles.$inferSelect): ProfileDto {
+  return {
+    avatarStoragePath: row.avatarStoragePath,
+    avatarUpdatedAt: row.avatarUpdatedAt,
+    createdAt: row.createdAt,
+    displayName: row.displayName,
+    id: row.id,
+    updatedAt: row.updatedAt,
+  };
 }
 
 function sourceSummary(
@@ -68,6 +88,68 @@ export class DrizzleKnowledgeRepository implements KnowledgeRepository {
         id: input.owner.userId,
       })
       .onConflictDoNothing();
+  }
+
+  async getProfile(input: { owner: OwnerContext }) {
+    const [row] = await db
+      .select()
+      .from(profiles)
+      .where(eq(profiles.id, input.owner.userId))
+      .limit(1);
+
+    return row ? profileDto(row) : null;
+  }
+
+  async updateProfile(input: {
+    owner: OwnerContext;
+    displayName: string | null;
+  }) {
+    const now = new Date();
+    const [row] = await db
+      .insert(profiles)
+      .values({
+        displayName: input.displayName,
+        id: input.owner.userId,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        set: { displayName: input.displayName, updatedAt: now },
+        target: profiles.id,
+      })
+      .returning();
+
+    return profileDto(row);
+  }
+
+  async updateProfileAvatar(input: {
+    owner: OwnerContext;
+    avatarStoragePath: string | null;
+    avatarUpdatedAt: Date | null;
+  }) {
+    const now = new Date();
+    const [row] = await db
+      .insert(profiles)
+      .values({
+        avatarStoragePath: input.avatarStoragePath,
+        avatarUpdatedAt: input.avatarUpdatedAt,
+        id: input.owner.userId,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        set: {
+          avatarStoragePath: input.avatarStoragePath,
+          avatarUpdatedAt: input.avatarUpdatedAt,
+          updatedAt: now,
+        },
+        target: profiles.id,
+      })
+      .returning();
+
+    return profileDto(row);
+  }
+
+  async deleteProfile(input: { owner: OwnerContext }) {
+    await db.delete(profiles).where(eq(profiles.id, input.owner.userId));
   }
 
   async createKnowledgeSource(input: {
@@ -163,6 +245,7 @@ export class DrizzleKnowledgeRepository implements KnowledgeRepository {
   async updateKnowledgeSourceDetails(input: {
     owner: OwnerContext;
     sourceId: KnowledgeSourceId;
+    fingerprint: string;
     title: string;
     metadata: JsonObject;
     status: SourceStatus;
@@ -170,6 +253,7 @@ export class DrizzleKnowledgeRepository implements KnowledgeRepository {
     await db
       .update(knowledgeSources)
       .set({
+        fingerprint: input.fingerprint,
         metadata: input.metadata,
         status: input.status,
         title: input.title,
@@ -377,12 +461,14 @@ export class DrizzleKnowledgeRepository implements KnowledgeRepository {
     owner: OwnerContext;
     cursor?: string;
     limit?: number;
+    offset?: number;
     filters?: {
       query?: string;
       status?: SourceStatus;
       type?: SourceType;
       collectionId?: string;
-      tagId?: string;
+      createdFrom?: string;
+      createdTo?: string;
     };
   }) {
     const conditions = [
@@ -397,10 +483,17 @@ export class DrizzleKnowledgeRepository implements KnowledgeRepository {
     if (filters.status) {
       conditions.push(eq(knowledgeSources.status, filters.status));
     }
-    if (filters.query?.trim()) {
-      conditions.push(
-        ilike(knowledgeSources.title, `%${filters.query.trim()}%`),
+    const searchQuery = filters.query?.trim();
+    if (searchQuery) {
+      const pattern = `%${searchQuery}%`;
+      const searchCondition = or(
+        ilike(knowledgeSources.title, pattern),
+        ilike(sourceContents.text, pattern),
       );
+
+      if (searchCondition) {
+        conditions.push(searchCondition);
+      }
     }
     if (filters.collectionId) {
       conditions.push(sql`exists (
@@ -409,13 +502,29 @@ export class DrizzleKnowledgeRepository implements KnowledgeRepository {
           and ${collectionSources.collectionId} = ${filters.collectionId}
       )`);
     }
-    if (filters.tagId) {
-      conditions.push(sql`exists (
-        select 1 from ${sourceTags}
-        where ${sourceTags.sourceId} = ${knowledgeSources.id}
-          and ${sourceTags.tagId} = ${filters.tagId}
-      )`);
+    if (filters.createdFrom) {
+      conditions.push(
+        sql`${knowledgeSources.createdAt} >= ${filters.createdFrom}::date`,
+      );
     }
+    if (filters.createdTo) {
+      conditions.push(
+        sql`${knowledgeSources.createdAt} < (${filters.createdTo}::date + interval '1 day')`,
+      );
+    }
+
+    const where = and(...conditions);
+    const [totalRow] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(knowledgeSources)
+      .leftJoin(
+        sourceContents,
+        and(
+          eq(sourceContents.sourceId, knowledgeSources.id),
+          eq(sourceContents.active, true),
+        ),
+      )
+      .where(where);
 
     const rows = await db
       .select({
@@ -430,13 +539,15 @@ export class DrizzleKnowledgeRepository implements KnowledgeRepository {
           eq(sourceContents.active, true),
         ),
       )
-      .where(and(...conditions))
+      .where(where)
       .orderBy(desc(knowledgeSources.updatedAt), desc(knowledgeSources.id))
-      .limit(input.limit ?? 50);
+      .limit(input.limit ?? 50)
+      .offset(input.offset ?? 0);
 
     return {
       items: rows.map((row) => sourceSummary(row.source, row.contentText)),
       next_cursor: null,
+      total: totalRow?.count ?? rows.length,
     };
   }
 
@@ -485,22 +596,14 @@ export class DrizzleKnowledgeRepository implements KnowledgeRepository {
       .select({
         collection_id: collections.id,
         created_at: collections.createdAt,
+        description: collections.description,
+        image_url: collections.imageUrl,
         name: collections.name,
         updated_at: collections.updatedAt,
       })
       .from(collections)
       .where(eq(collections.userId, input.owner.userId))
       .orderBy(collections.name);
-
-    const tagRows = await db
-      .select({
-        created_at: tags.createdAt,
-        name: tags.name,
-        tag_id: tags.id,
-      })
-      .from(tags)
-      .where(eq(tags.userId, input.owner.userId))
-      .orderBy(tags.name);
 
     const collectionSourceRows = await db
       .select({
@@ -513,15 +616,6 @@ export class DrizzleKnowledgeRepository implements KnowledgeRepository {
         eq(collections.id, collectionSources.collectionId),
       )
       .where(eq(collections.userId, input.owner.userId));
-
-    const sourceTagRows = await db
-      .select({
-        source_id: sourceTags.sourceId,
-        tag_id: sourceTags.tagId,
-      })
-      .from(sourceTags)
-      .innerJoin(tags, eq(tags.id, sourceTags.tagId))
-      .where(eq(tags.userId, input.owner.userId));
 
     const threadRows = await db
       .select({
@@ -613,7 +707,6 @@ export class DrizzleKnowledgeRepository implements KnowledgeRepository {
       exported_at: new Date(),
       retrieval_results: retrievalResultRows,
       retrieval_runs: retrievalRunRows,
-      source_tags: sourceTagRows,
       sources: sourceRows.map((row) => ({
         active_content_text:
           row.source.purgedAt === null ? row.contentText : null,
@@ -628,7 +721,6 @@ export class DrizzleKnowledgeRepository implements KnowledgeRepository {
         type: row.source.type,
         updated_at: row.source.updatedAt,
       })),
-      tags: tagRows,
     };
   }
 
@@ -668,9 +760,6 @@ export class DrizzleKnowledgeRepository implements KnowledgeRepository {
       await tx
         .delete(collectionSources)
         .where(eq(collectionSources.sourceId, input.sourceId));
-      await tx
-        .delete(sourceTags)
-        .where(eq(sourceTags.sourceId, input.sourceId));
       await tx
         .delete(sourceContents)
         .where(eq(sourceContents.sourceId, input.sourceId));
@@ -715,31 +804,23 @@ export class DrizzleKnowledgeRepository implements KnowledgeRepository {
       return null;
     }
 
-    const [sourceCollections, sourceTagRows] = await Promise.all([
-      db
-        .select({
-          collection_id: collections.id,
-          name: collections.name,
-          source_count: sql<number>`0`,
-        })
-        .from(collectionSources)
-        .innerJoin(
-          collections,
-          eq(collections.id, collectionSources.collectionId),
-        )
-        .where(eq(collectionSources.sourceId, input.sourceId))
-        .orderBy(collections.name),
-      db
-        .select({
-          name: tags.name,
-          source_count: sql<number>`0`,
-          tag_id: tags.id,
-        })
-        .from(sourceTags)
-        .innerJoin(tags, eq(tags.id, sourceTags.tagId))
-        .where(eq(sourceTags.sourceId, input.sourceId))
-        .orderBy(tags.name),
-    ]);
+    const sourceCollections = await db
+      .select({
+        collection_id: collections.id,
+        created_at: collections.createdAt,
+        description: collections.description,
+        image_url: collections.imageUrl,
+        name: collections.name,
+        source_count: sql<number>`0`,
+        updated_at: collections.updatedAt,
+      })
+      .from(collectionSources)
+      .innerJoin(
+        collections,
+        eq(collections.id, collectionSources.collectionId),
+      )
+      .where(eq(collectionSources.sourceId, input.sourceId))
+      .orderBy(collections.name);
 
     return {
       active_content_text: row.contentText,
@@ -749,39 +830,163 @@ export class DrizzleKnowledgeRepository implements KnowledgeRepository {
         fingerprint: row.source.fingerprint,
         metadata: row.source.metadata,
       },
-      tags: sourceTagRows,
     };
   }
 
-  async listCollections(input: { owner: OwnerContext }) {
+  async listSourceCitations(input: {
+    owner: OwnerContext;
+    sourceId: KnowledgeSourceId;
+  }) {
     return db
       .select({
+        chunk_position: answerCitations.chunkPositionSnapshot,
+        citation_id: answerCitations.id,
+        cited_at: answerCitations.createdAt,
+        content_version: answerCitations.contentVersionSnapshot,
+        quote: answerCitations.quote,
+        rank: answerCitations.rank,
+        thread_id: chatThreads.id,
+        thread_title: chatThreads.title,
+      })
+      .from(answerCitations)
+      .innerJoin(chatMessages, eq(chatMessages.id, answerCitations.messageId))
+      .innerJoin(chatThreads, eq(chatThreads.id, chatMessages.threadId))
+      .where(
+        and(
+          eq(chatThreads.userId, input.owner.userId),
+          eq(answerCitations.sourceIdSnapshot, input.sourceId),
+        ),
+      )
+      .orderBy(desc(answerCitations.createdAt), answerCitations.rank);
+  }
+
+  async listCollections(input: {
+    filters?: {
+      createdFrom?: string;
+      createdTo?: string;
+      hasImage?: boolean;
+      hasSources?: boolean;
+      query?: string;
+      sort?: "name" | "newest" | "source_count" | "updated";
+    };
+    owner: OwnerContext;
+  }) {
+    const filters = input.filters ?? {};
+    const conditions = [eq(collections.userId, input.owner.userId)];
+    const sourceCount = sql<number>`count(${collectionSources.sourceId})::int`;
+
+    if (filters.query?.trim()) {
+      conditions.push(ilike(collections.name, `%${filters.query.trim()}%`));
+    }
+    if (filters.createdFrom) {
+      conditions.push(
+        sql`${collections.createdAt} >= ${filters.createdFrom}::date`,
+      );
+    }
+    if (filters.createdTo) {
+      conditions.push(
+        sql`${collections.createdAt} < (${filters.createdTo}::date + interval '1 day')`,
+      );
+    }
+    if (filters.hasImage === true) {
+      conditions.push(isNotNull(collections.imageUrl));
+    }
+    if (filters.hasImage === false) {
+      conditions.push(isNull(collections.imageUrl));
+    }
+
+    const query = db
+      .select({
         collection_id: collections.id,
+        created_at: collections.createdAt,
+        description: collections.description,
+        image_url: collections.imageUrl,
         name: collections.name,
-        source_count: sql<number>`count(${collectionSources.sourceId})::int`,
+        source_count: sourceCount,
+        updated_at: collections.updatedAt,
       })
       .from(collections)
       .leftJoin(
         collectionSources,
         eq(collectionSources.collectionId, collections.id),
       )
-      .where(eq(collections.userId, input.owner.userId))
-      .groupBy(collections.id)
-      .orderBy(collections.name);
+      .where(and(...conditions))
+      .groupBy(collections.id);
+
+    const filteredQuery =
+      filters.hasSources === true
+        ? query.having(sql`count(${collectionSources.sourceId}) > 0`)
+        : filters.hasSources === false
+          ? query.having(sql`count(${collectionSources.sourceId}) = 0`)
+          : query;
+
+    if (filters.sort === "newest") {
+      return filteredQuery.orderBy(
+        desc(collections.createdAt),
+        collections.name,
+      );
+    }
+    if (filters.sort === "updated") {
+      return filteredQuery.orderBy(
+        desc(collections.updatedAt),
+        collections.name,
+      );
+    }
+    if (filters.sort === "source_count") {
+      return filteredQuery.orderBy(
+        sql`count(${collectionSources.sourceId}) desc`,
+        collections.name,
+      );
+    }
+
+    return filteredQuery.orderBy(collections.name);
   }
 
-  async createCollection(input: { owner: OwnerContext; name: string }) {
+  async getCollectionDetail(input: {
+    collectionId: string;
+    owner: OwnerContext;
+  }) {
+    const [collection] = await this.listCollections({
+      owner: input.owner,
+    }).then((items) =>
+      items.filter((item) => item.collection_id === input.collectionId),
+    );
+
+    if (!collection) {
+      return null;
+    }
+
+    const sources = await this.listKnowledgeSources({
+      filters: { collectionId: input.collectionId },
+      limit: 100,
+      owner: input.owner,
+    });
+
+    return { collection, sources: sources.items };
+  }
+
+  async createCollection(input: {
+    description?: string | null;
+    imageUrl?: string | null;
+    owner: OwnerContext;
+    name: string;
+  }) {
     const inserted = await db
       .insert(collections)
-      .values({ name: input.name, userId: input.owner.userId })
+      .values({
+        description: input.description ?? null,
+        imageUrl: input.imageUrl ?? null,
+        name: input.name,
+        userId: input.owner.userId,
+      })
       .onConflictDoNothing()
-      .returning({ collection_id: collections.id, name: collections.name });
+      .returning({ collection_id: collections.id });
 
-    const row =
-      inserted[0] ??
+    const collectionId =
+      inserted[0]?.collection_id ??
       (
         await db
-          .select({ collection_id: collections.id, name: collections.name })
+          .select({ collection_id: collections.id })
           .from(collections)
           .where(
             and(
@@ -790,9 +995,81 @@ export class DrizzleKnowledgeRepository implements KnowledgeRepository {
             ),
           )
           .limit(1)
-      )[0];
+      )[0]?.collection_id;
 
-    return { ...row, source_count: 0 };
+    const detail = collectionId
+      ? await this.getCollectionDetail({ collectionId, owner: input.owner })
+      : null;
+
+    if (!detail) {
+      throw new Error("Collection could not be saved");
+    }
+
+    return detail.collection;
+  }
+
+  async updateCollection(input: {
+    collectionId: string;
+    description?: string | null;
+    imageUrl: string | null;
+    name: string;
+    owner: OwnerContext;
+  }) {
+    const [row] = await db
+      .update(collections)
+      .set({
+        description: input.description ?? null,
+        imageUrl: input.imageUrl,
+        name: input.name,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(collections.id, input.collectionId),
+          eq(collections.userId, input.owner.userId),
+        ),
+      )
+      .returning({ collection_id: collections.id });
+
+    if (!row) {
+      throw new Error("Collection not found");
+    }
+
+    const detail = await this.getCollectionDetail({
+      collectionId: row.collection_id,
+      owner: input.owner,
+    });
+
+    if (!detail) {
+      throw new Error("Collection not found");
+    }
+
+    return detail.collection;
+  }
+
+  async deleteCollection(input: { collectionId: string; owner: OwnerContext }) {
+    await db
+      .delete(collections)
+      .where(
+        and(
+          eq(collections.id, input.collectionId),
+          eq(collections.userId, input.owner.userId),
+        ),
+      );
+  }
+
+  async deleteCollections(input: {
+    collectionIds: string[];
+    owner: OwnerContext;
+  }) {
+    await db
+      .delete(collections)
+      .where(
+        and(
+          eq(collections.userId, input.owner.userId),
+          inArray(collections.id, input.collectionIds),
+        ),
+      );
   }
 
   async addSourceToCollection(input: {
@@ -807,52 +1084,20 @@ export class DrizzleKnowledgeRepository implements KnowledgeRepository {
       .onConflictDoNothing();
   }
 
-  async listTags(input: { owner: OwnerContext }) {
-    return db
-      .select({
-        name: tags.name,
-        source_count: sql<number>`count(${sourceTags.sourceId})::int`,
-        tag_id: tags.id,
-      })
-      .from(tags)
-      .leftJoin(sourceTags, eq(sourceTags.tagId, tags.id))
-      .where(eq(tags.userId, input.owner.userId))
-      .groupBy(tags.id)
-      .orderBy(tags.name);
-  }
-
-  async createTag(input: { owner: OwnerContext; name: string }) {
-    const inserted = await db
-      .insert(tags)
-      .values({ name: input.name, userId: input.owner.userId })
-      .onConflictDoNothing()
-      .returning({ name: tags.name, tag_id: tags.id });
-
-    const row =
-      inserted[0] ??
-      (
-        await db
-          .select({ name: tags.name, tag_id: tags.id })
-          .from(tags)
-          .where(
-            and(eq(tags.userId, input.owner.userId), eq(tags.name, input.name)),
-          )
-          .limit(1)
-      )[0];
-
-    return { ...row, source_count: 0 };
-  }
-
-  async addTagToSource(input: {
+  async removeSourceFromCollection(input: {
     owner: OwnerContext;
-    tagId: string;
+    collectionId: string;
     sourceId: KnowledgeSourceId;
   }) {
-    await this.assertTagAndSourceShareOwner(input);
+    await this.assertCollectionAndSourceShareOwner(input);
     await db
-      .insert(sourceTags)
-      .values({ sourceId: input.sourceId, tagId: input.tagId })
-      .onConflictDoNothing();
+      .delete(collectionSources)
+      .where(
+        and(
+          eq(collectionSources.collectionId, input.collectionId),
+          eq(collectionSources.sourceId, input.sourceId),
+        ),
+      );
   }
 
   async assertCollectionAndSourceShareOwner(input: {
@@ -879,30 +1124,6 @@ export class DrizzleKnowledgeRepository implements KnowledgeRepository {
 
     if (!row) {
       throw new Error("Collection or source not found");
-    }
-  }
-
-  async assertTagAndSourceShareOwner(input: {
-    owner: OwnerContext;
-    tagId: string;
-    sourceId: KnowledgeSourceId;
-  }) {
-    const [row] = await db
-      .select({ id: tags.id })
-      .from(tags)
-      .innerJoin(knowledgeSources, eq(knowledgeSources.userId, tags.userId))
-      .where(
-        and(
-          eq(tags.id, input.tagId),
-          eq(knowledgeSources.id, input.sourceId),
-          eq(tags.userId, input.owner.userId),
-          isNull(knowledgeSources.deletedAt),
-        ),
-      )
-      .limit(1);
-
-    if (!row) {
-      throw new Error("Tag or source not found");
     }
   }
 
@@ -1052,7 +1273,7 @@ export class DrizzleKnowledgeRepository implements KnowledgeRepository {
     owner: OwnerContext;
     embedding: number[];
     limit: number;
-    filters?: { collectionId?: string; tagId?: string };
+    filters?: { collectionId?: string };
   }): Promise<RetrievalChunkDto[]> {
     const vector = vectorLiteral(input.embedding);
     const rows = await db.execute<RetrievalChunkDto>(sql`
@@ -1085,14 +1306,6 @@ export class DrizzleKnowledgeRepository implements KnowledgeRepository {
               and collection_sources.collection_id = ${input.filters?.collectionId ?? null}::uuid
           )
         )
-        and (
-          ${input.filters?.tagId ?? null}::uuid is null
-          or exists (
-            select 1 from source_tags
-            where source_tags.source_id = knowledge_sources.id
-              and source_tags.tag_id = ${input.filters?.tagId ?? null}::uuid
-          )
-        )
       order by chunk_embeddings.embedding <=> ${sql.raw(`'${vector}'::vector`)}
       limit ${input.limit}
     `);
@@ -1101,30 +1314,50 @@ export class DrizzleKnowledgeRepository implements KnowledgeRepository {
   }
 
   async getDashboardSummary(input: { owner: OwnerContext }) {
-    const sources = await this.listKnowledgeSources({
-      limit: 6,
-      owner: input.owner,
-    });
-
-    const jobs = await db
-      .select({
-        createdAt: ingestionJobs.createdAt,
-        status: ingestionJobs.status,
-      })
-      .from(ingestionJobs)
-      .innerJoin(
-        knowledgeSources,
-        eq(knowledgeSources.id, ingestionJobs.sourceId),
-      )
-      .where(eq(knowledgeSources.userId, input.owner.userId))
-      .orderBy(desc(ingestionJobs.createdAt))
-      .limit(20);
-
-    const [defaultThread, collectionRows, tagRows] = await Promise.all([
-      this.getDefaultChatThread({ owner: input.owner }),
-      this.listCollections({ owner: input.owner }),
-      this.listTags({ owner: input.owner }),
-    ]);
+    const [sources, jobs, metricRows, defaultThread, collectionRows] =
+      await Promise.all([
+        this.listKnowledgeSources({
+          limit: 5,
+          owner: input.owner,
+        }),
+        db
+          .select({
+            createdAt: ingestionJobs.createdAt,
+            status: ingestionJobs.status,
+          })
+          .from(ingestionJobs)
+          .innerJoin(
+            knowledgeSources,
+            eq(knowledgeSources.id, ingestionJobs.sourceId),
+          )
+          .where(eq(knowledgeSources.userId, input.owner.userId))
+          .orderBy(desc(ingestionJobs.createdAt))
+          .limit(20),
+        db
+          .select({
+            noteSources: sql<number>`count(*) filter (
+              where ${knowledgeSources.type} = 'note'
+            )::int`,
+            totalSources: sql<number>`count(*)::int`,
+            unsortedSources: sql<number>`count(*) filter (
+              where not exists (
+                select 1
+                from ${collectionSources}
+                where ${collectionSources.sourceId} = ${knowledgeSources.id}
+              )
+            )::int`,
+          })
+          .from(knowledgeSources)
+          .where(
+            and(
+              eq(knowledgeSources.userId, input.owner.userId),
+              isNull(knowledgeSources.deletedAt),
+            ),
+          ),
+        this.getDefaultChatThread({ owner: input.owner }),
+        this.listCollections({ owner: input.owner }),
+      ]);
+    const metrics = metricRows[0];
 
     return {
       collections: collectionRows,
@@ -1136,8 +1369,12 @@ export class DrizzleKnowledgeRepository implements KnowledgeRepository {
         processingCount: jobs.filter((job) => job.status === "running").length,
         queuedCount: jobs.filter((job) => job.status === "queued").length,
       },
+      metrics: {
+        noteSources: metrics?.noteSources ?? 0,
+        totalSources: metrics?.totalSources ?? 0,
+        unsortedSources: metrics?.unsortedSources ?? 0,
+      },
       sources: sources.items,
-      tags: tagRows,
     };
   }
 }

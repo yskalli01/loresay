@@ -7,7 +7,9 @@ import {
   updateTextNoteAction,
   type NoteActionState,
 } from "@/app/actions/knowledge";
-import { Button, Input, Label, Textarea } from "@/presentation/ui";
+import { Button, Input, Label } from "@/presentation/ui";
+
+import { MarkdownEditorField } from "./markdown-editor-field";
 
 const initialState: NoteActionState = {};
 
@@ -30,32 +32,30 @@ export function SourceEditForm({ body, sourceId, title }: SourceEditFormProps) {
     >
       <input name="sourceId" type="hidden" value={sourceId} />
       <div className="space-y-2">
-        <Label htmlFor={`edit-title-${sourceId}`}>Edit title</Label>
+        <Label htmlFor={`edit-title-${sourceId}`}>Title</Label>
         <Input
           defaultValue={title}
           id={`edit-title-${sourceId}`}
           maxLength={200}
           name="title"
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor={`edit-body-${sourceId}`}>Edit note body</Label>
-        <Textarea
-          className="min-h-56"
-          defaultValue={body}
-          id={`edit-body-${sourceId}`}
-          maxLength={20_000}
-          name="body"
           required
         />
       </div>
+      <div className="space-y-2">
+        <Label>Content</Label>
+        <MarkdownEditorField
+          defaultMarkdown={body}
+          editorClassName="min-h-64"
+          placeholder="Update note content..."
+        />
+      </div>
       {state.error ? (
-        <p className="rounded-md border border-error/40 bg-error-soft px-3 py-2 text-sm text-error">
+        <p className="rounded-md border border-error/20 bg-error-tint px-3 py-2 text-sm font-medium text-error-strong">
           {state.error}
         </p>
       ) : null}
       {state.message ? (
-        <p className="rounded-md border border-success/40 bg-success-soft px-3 py-2 text-sm text-body">
+        <p className="rounded-md border border-success/20 bg-success-tint px-3 py-2 text-sm font-medium text-success-strong">
           {state.message}
         </p>
       ) : null}
@@ -66,7 +66,7 @@ export function SourceEditForm({ body, sourceId, title }: SourceEditFormProps) {
         type="submit"
         variant="secondary"
       >
-        {pending ? "Reprocessing..." : "Update note"}
+        {pending ? "Reprocessing..." : "Save changes"}
       </Button>
     </form>
   );

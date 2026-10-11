@@ -43,6 +43,10 @@ const expectedTables = [
   "answer_citations",
 ];
 
+const expectedColumns = {
+  collections: ["image_url"],
+};
+
 if (!process.env.DATABASE_URL) {
   throw new Error("Missing required environment variable: DATABASE_URL");
 }
@@ -101,10 +105,27 @@ try {
     order by contype
   `;
 
+  const requiredColumnTables = Object.keys(expectedColumns);
+  const columns = await sql`
+    select table_name, column_name
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = any(${requiredColumnTables}::text[])
+    order by table_name, column_name
+  `;
+
   const tableNames = new Set(tables.map((table) => table.tablename));
   const missingTables = expectedTables.filter(
     (table) => !tableNames.has(table),
   );
+  const liveColumns = new Set(
+    columns.map((column) => `${column.table_name}.${column.column_name}`),
+  );
+  const missingRequiredColumns = Object.entries(expectedColumns)
+    .flatMap(([tableName, columnNames]) =>
+      columnNames.map((columnName) => `${tableName}.${columnName}`),
+    )
+    .filter((columnName) => !liveColumns.has(columnName));
   const tablesWithoutRls = rls
     .filter((table) => !table.relrowsecurity)
     .map((table) => table.relname);
@@ -113,6 +134,7 @@ try {
     expectedTables: expectedTables.length,
     liveTables: tables.length,
     missingTables,
+    missingRequiredColumns,
     vectorExtension: extension.length === 1,
     tablesWithoutRls,
     policyTables: policies.length,
@@ -127,6 +149,7 @@ try {
 
   if (
     missingTables.length > 0 ||
+    missingRequiredColumns.length > 0 ||
     !summary.vectorExtension ||
     tablesWithoutRls.length > 0 ||
     summary.policyTables !== expectedTables.length

@@ -36,6 +36,8 @@ export function createStubEmbedding(input: string) {
 }
 
 export const stubEmbeddingGateway: EmbeddingGateway = {
+  model: "stub-hash-embedding",
+  provider: "stub",
   async embed(input) {
     return createStubEmbedding(input);
   },
@@ -56,3 +58,4 @@ export const stubAnswerGateway: AnswerGateway = {
     }
   },
 };
+

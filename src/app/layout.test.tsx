@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import RootLayout, { metadata } from "./layout";
+import RootLayout, { metadata, themeBootstrap } from "./layout";
 
 describe("Root layout scaffold", () => {
   it("publishes product metadata", () => {
@@ -21,5 +21,13 @@ describe("Root layout scaffold", () => {
     expect(html).toContain('<html lang="en"');
     expect(html).toContain("<body");
     expect(html).toContain("shell child");
+  });
+
+  it("applies the stored theme before first paint", () => {
+    expect(themeBootstrap).toContain('localStorage.getItem("theme")');
+    expect(themeBootstrap).toContain(
+      'matchMedia("(prefers-color-scheme: dark)")',
+    );
+    expect(themeBootstrap).toContain("classList.toggle");
   });
 });

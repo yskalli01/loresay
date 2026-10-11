@@ -17,11 +17,11 @@ import type {
 import {
   assertSourceMetadata,
   assertWithinTextLimit,
-  deriveSourceTitle,
   knowledgeLimits,
   normalizeUrlForFingerprint,
   type DocumentSourceMetadata,
   type NoteSourceMetadata,
+  type SourceStatus,
   type UrlSourceMetadata,
 } from "@/domain/knowledge";
 import { invariant } from "@/domain/knowledge/errors";
@@ -43,6 +43,8 @@ const supportedDocumentExtensions = [".md", ".markdown", ".txt"];
 const maxInlineDocumentBytes = 256 * 1024;
 
 export type EmbeddingGateway = {
+  model: string;
+  provider: string;
   embed(input: string): Promise<number[]>;
   embedMany(input: string[]): Promise<number[][]>;
 };
@@ -64,6 +66,19 @@ export type SaveTextNoteResult =
       sourceId: string;
       status: "ready";
       chunkCount: number;
+    }
+  | {
+      ok: false;
+      message: string;
+    };
+
+export type UpdateKnowledgeSourceResult =
+  | {
+      ok: true;
+      sourceId: string;
+      status: SourceStatus;
+      chunkCount: number;
+      reprocessed: boolean;
     }
   | {
       ok: false;
@@ -107,6 +122,32 @@ export async function saveTextDocument(input: {
   byteSize: number;
   text: string;
 }): Promise<SaveTextNoteResult> {
+  const { metadata, text } = prepareTextDocument(input);
+
+  const source = await createKnowledgeSource(input.repository, input.owner, {
+    metadata,
+    title: metadata.file_name,
+    type: "document",
+  });
+
+  return processTextSource({
+    failureMessage:
+      "The document was saved, but processing failed. Try again later.",
+    lastErrorMessage: "Inline document processing failed",
+    owner: input.owner,
+    repository: input.repository,
+    embeddings: input.embeddings,
+    sourceId: source.source_id,
+    text,
+  });
+}
+
+function prepareTextDocument(input: {
+  fileName: string;
+  mimeType: string;
+  byteSize: number;
+  text: string;
+}) {
   const fileName = input.fileName.trim();
   const mimeType = input.mimeType.trim() || "text/plain";
   const text = input.text.trim();
@@ -139,22 +180,7 @@ export async function saveTextDocument(input: {
     storage_path: `inline-upload/${fileHash}/${fileName}`,
   };
 
-  const source = await createKnowledgeSource(input.repository, input.owner, {
-    metadata,
-    title: fileName,
-    type: "document",
-  });
-
-  return processTextSource({
-    failureMessage:
-      "The document was saved, but processing failed. Try again later.",
-    lastErrorMessage: "Inline document processing failed",
-    owner: input.owner,
-    repository: input.repository,
-    embeddings: input.embeddings,
-    sourceId: source.source_id,
-    text,
-  });
+  return { metadata, text };
 }
 
 export async function saveUrlSource(input: {
@@ -200,10 +226,11 @@ export async function updateTextNote(input: {
   embeddings: EmbeddingGateway;
   owner: OwnerContext;
   sourceId: string;
-  title?: string | null;
+  title: string;
   body: string;
-}): Promise<SaveTextNoteResult> {
+}): Promise<UpdateKnowledgeSourceResult> {
   const body = validateThinLoopNoteBody(input.body);
+  const title = validateEditedSourceTitle(input.title);
   const source = await input.repository.getSourceForOwner({
     owner: input.owner,
     sourceId: input.sourceId,
@@ -222,10 +249,9 @@ export async function updateTextNote(input: {
     ...source.metadata,
     body_hash: hashText(body),
   };
-  const title = deriveSourceTitle("note", metadata, input.title, body);
-  assertWithinTextLimit("Source title", title, knowledgeLimits.title);
 
   await input.repository.updateKnowledgeSourceDetails({
+    fingerprint: source.fingerprint,
     metadata,
     owner: input.owner,
     sourceId: source.id,
@@ -233,7 +259,7 @@ export async function updateTextNote(input: {
     title,
   });
 
-  return processTextSource({
+  const result = await processTextSource({
     failureMessage:
       "The note was updated, but reprocessing failed. Try again later.",
     lastErrorMessage: "Inline note processing failed",
@@ -243,6 +269,202 @@ export async function updateTextNote(input: {
     sourceId: source.id,
     text: body,
   });
+
+  return result.ok ? { ...result, reprocessed: true } : result;
+}
+
+export async function updateTextDocument(input: {
+  repository: KnowledgeRepository;
+  embeddings: EmbeddingGateway;
+  owner: OwnerContext;
+  sourceId: string;
+  title: string;
+  replacement?: {
+    fileName: string;
+    mimeType: string;
+    byteSize: number;
+    text: string;
+  } | null;
+}): Promise<UpdateKnowledgeSourceResult> {
+  const title = validateEditedSourceTitle(input.title);
+  const source = await input.repository.getSourceForOwner({
+    owner: input.owner,
+    sourceId: input.sourceId,
+  });
+
+  invariant(source !== null, "Source not found", "source_not_found");
+  invariant(source.deletedAt === null, "Source is deleted", "source_deleted");
+  invariant(
+    source.type === "document",
+    "Only documents can use document editing",
+    "invalid_source_type",
+  );
+  assertSourceMetadata("document", source.metadata);
+
+  if (!input.replacement) {
+    await input.repository.updateKnowledgeSourceDetails({
+      fingerprint: source.fingerprint,
+      metadata: source.metadata,
+      owner: input.owner,
+      sourceId: source.id,
+      status: source.status,
+      title,
+    });
+
+    return {
+      chunkCount: 0,
+      ok: true,
+      reprocessed: false,
+      sourceId: source.id,
+      status: source.status,
+    };
+  }
+
+  const { metadata, text } = prepareTextDocument(input.replacement);
+  await assertAvailableFingerprint({
+    currentSourceId: source.id,
+    fingerprint: metadata.file_hash,
+    owner: input.owner,
+    repository: input.repository,
+    type: "document",
+  });
+  await input.repository.updateKnowledgeSourceDetails({
+    fingerprint: metadata.file_hash,
+    metadata,
+    owner: input.owner,
+    sourceId: source.id,
+    status: "processing",
+    title,
+  });
+
+  const result = await processTextSource({
+    failureMessage:
+      "The document was updated, but reprocessing failed. Try again later.",
+    lastErrorMessage: "Inline document processing failed",
+    owner: input.owner,
+    repository: input.repository,
+    embeddings: input.embeddings,
+    sourceId: source.id,
+    text,
+  });
+
+  return result.ok ? { ...result, reprocessed: true } : result;
+}
+
+export async function updateUrlSource(input: {
+  repository: KnowledgeRepository;
+  embeddings: EmbeddingGateway;
+  owner: OwnerContext;
+  sourceId: string;
+  title: string;
+  url: string;
+  fetcher?: UrlFetchGateway;
+}): Promise<UpdateKnowledgeSourceResult> {
+  const title = validateEditedSourceTitle(input.title);
+  const canonicalUrl = validateIngestibleUrl(input.url);
+  const source = await input.repository.getSourceForOwner({
+    owner: input.owner,
+    sourceId: input.sourceId,
+  });
+
+  invariant(source !== null, "Source not found", "source_not_found");
+  invariant(source.deletedAt === null, "Source is deleted", "source_deleted");
+  invariant(
+    source.type === "url",
+    "Only URLs can use URL editing",
+    "invalid_source_type",
+  );
+  assertSourceMetadata("url", source.metadata);
+
+  const metadata: UrlSourceMetadata = {
+    canonical_url: canonicalUrl,
+    original_url: input.url.trim(),
+    url_hash: hashText(canonicalUrl),
+  };
+
+  if (canonicalUrl === source.metadata.canonical_url) {
+    await input.repository.updateKnowledgeSourceDetails({
+      fingerprint: source.fingerprint,
+      metadata,
+      owner: input.owner,
+      sourceId: source.id,
+      status: source.status,
+      title,
+    });
+
+    return {
+      chunkCount: 0,
+      ok: true,
+      reprocessed: false,
+      sourceId: source.id,
+      status: source.status,
+    };
+  }
+
+  await assertAvailableFingerprint({
+    currentSourceId: source.id,
+    fingerprint: metadata.url_hash,
+    owner: input.owner,
+    repository: input.repository,
+    type: "url",
+  });
+  const fetched = await fetchUrlContent(canonicalUrl, input.fetcher ?? fetch);
+  assertWithinTextLimit(
+    "URL content",
+    fetched.text,
+    knowledgeLimits.sourceText,
+  );
+  await input.repository.updateKnowledgeSourceDetails({
+    fingerprint: metadata.url_hash,
+    metadata,
+    owner: input.owner,
+    sourceId: source.id,
+    status: "processing",
+    title,
+  });
+
+  const result = await processTextSource({
+    failureMessage:
+      "The URL was updated, but reprocessing failed. Try again later.",
+    lastErrorMessage: "URL processing failed",
+    owner: input.owner,
+    repository: input.repository,
+    embeddings: input.embeddings,
+    sourceId: source.id,
+    text: fetched.text,
+  });
+
+  return result.ok ? { ...result, reprocessed: true } : result;
+}
+
+function validateEditedSourceTitle(value: string) {
+  const title = value.trim();
+  invariant(
+    title.length > 0,
+    "Source title is required",
+    "source_title_required",
+  );
+  assertWithinTextLimit("Source title", title, knowledgeLimits.title);
+  return title;
+}
+
+async function assertAvailableFingerprint(input: {
+  currentSourceId: string;
+  fingerprint: string;
+  owner: OwnerContext;
+  repository: KnowledgeRepository;
+  type: "document" | "url";
+}) {
+  const duplicate = await input.repository.findActiveSourceByFingerprint({
+    fingerprint: input.fingerprint,
+    owner: input.owner,
+    type: input.type,
+  });
+  invariant(
+    duplicate === null || duplicate.id === input.currentSourceId,
+    "An active source with this fingerprint already exists",
+    "duplicate_active_source",
+  );
 }
 
 function isSupportedTextDocument(fileName: string, mimeType: string) {
@@ -299,8 +521,8 @@ async function processTextSource(input: {
         contentHash: chunk.contentHash,
         dimensions: thinLoopLimits.embeddingDimensions,
         embedding: embeddings[index] ?? [],
-        model: "text-embedding-3-small",
-        provider: "openai",
+        model: input.embeddings.model,
+        provider: input.embeddings.provider,
       })),
       expectedDimensions: thinLoopLimits.embeddingDimensions,
     });
@@ -422,9 +644,9 @@ export async function retrySourceIngestion(input: {
 
   invariant(detail !== null, "Source not found", "source_not_found");
   invariant(
-    detail.source.status === "failed",
-    "Only failed sources can be retried",
-    "source_retry_not_failed",
+    detail.source.status === "failed" || detail.source.status === "ready",
+    "Only ready or failed sources can be reprocessed",
+    "source_reprocess_not_allowed",
   );
   invariant(
     typeof detail.active_content_text === "string" &&
@@ -435,8 +657,8 @@ export async function retrySourceIngestion(input: {
 
   return processTextSource({
     failureMessage:
-      "The retry started, but processing failed again. Try later or update the source.",
-    lastErrorMessage: "Source retry processing failed",
+      "The reprocess started, but processing failed. Try later or update the source.",
+    lastErrorMessage: "Source reprocessing failed",
     owner: input.owner,
     repository: input.repository,
     embeddings: input.embeddings,
@@ -495,7 +717,7 @@ export async function answerQuestion(input: {
         input.answers.answer({ chunks, question }),
         input.onDelta,
       )
-    : "Your saved knowledge does not contain enough information to answer that yet.";
+    : createUnsupportedAnswer(input.filters);
 
   if (!enoughSupport) {
     input.onDelta?.(assistantText);
@@ -514,7 +736,6 @@ export async function answerQuestion(input: {
       ...(input.filters?.collectionId
         ? { collection_id: input.filters.collectionId }
         : {}),
-      ...(input.filters?.tagId ? { tag_id: input.filters.tagId } : {}),
     },
     promptContextHash: createPromptContextHash(
       question,
@@ -554,6 +775,16 @@ export async function answerQuestion(input: {
     citations,
     threadId: thread.threadId,
   };
+}
+
+function createUnsupportedAnswer(filters?: RetrievalFilters) {
+  const hasActiveFilters = Boolean(filters?.collectionId);
+
+  if (hasActiveFilters) {
+    return "I could not find enough matching saved knowledge with the current collection filter. Try clearing the filters or asking about a source in that filtered set.";
+  }
+
+  return "I could not find enough relevant saved knowledge to answer that yet. Try asking about a saved source, or add and process a note first.";
 }
 
 async function collectAnswer(

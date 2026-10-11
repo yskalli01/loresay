@@ -1,13 +1,17 @@
 "use client";
 
-import { FormEvent, type ReactNode, useState } from "react";
-import { Bot, Send } from "lucide-react";
+import { FormEvent, type ReactNode, useRef, useState } from "react";
+import {
+  Bot,
+  FileText,
+  Link2,
+  Loader2,
+  Send,
+  Sparkles,
+  User,
+} from "lucide-react";
 
-import type {
-  CollectionSummaryDto,
-  TagSummaryDto,
-} from "@/application/knowledge/repositories";
-import { Button, Card, CardBody, Label, Textarea } from "@/presentation/ui";
+import type { CollectionSummaryDto } from "@/application/knowledge/repositories";
 
 export type Citation = {
   citation_id: string;
@@ -20,6 +24,14 @@ type ChatResponse = {
   answer: string;
   citations: Citation[];
   threadId: string;
+};
+
+type ChatMessage = {
+  id: string;
+  role: "assistant" | "user";
+  content: string;
+  citations?: Citation[];
+  pending?: boolean;
 };
 
 type ChatStreamEvent =
@@ -37,49 +49,75 @@ type ChatStreamEvent =
 
 export function ChatPanel({
   collections = [],
-  tags = [],
   threadId,
 }: {
   collections?: CollectionSummaryDto[];
-  tags?: TagSummaryDto[];
   threadId: string | null;
 }) {
-  const [answer, setAnswer] = useState("");
-  const [citations, setCitations] = useState<Citation[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const [activeThreadId, setActiveThreadId] = useState(threadId);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function updateAssistantMessage(
+    id: string,
+    update: Partial<Omit<ChatMessage, "id" | "role">>,
+  ) {
+    setMessages((current) =>
+      current.map((message) =>
+        message.id === id ? { ...message, ...update } : message,
+      ),
+    );
+  }
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const message = String(form.get("message") ?? "").trim();
     const collectionId = String(form.get("collectionId") ?? "").trim();
-    const tagId = String(form.get("tagId") ?? "").trim();
 
     if (!message) {
       setError("Ask a question first.");
       return;
     }
 
+    const userMessageId = crypto.randomUUID();
+    const assistantMessageId = crypto.randomUUID();
+
+    setMessages((current) => [
+      ...current,
+      { content: message, id: userMessageId, role: "user" },
+      {
+        content: "",
+        citations: [],
+        id: assistantMessageId,
+        pending: true,
+        role: "assistant",
+      },
+    ]);
     setPending(true);
     setError("");
-    setAnswer("");
-    setCitations([]);
+    inputRef.current!.value = "";
 
     const response = await fetch("/api/chat", {
       body: JSON.stringify({
         collectionId: collectionId || undefined,
         message,
-        tagId: tagId || undefined,
-        threadId,
+        threadId: activeThreadId,
       }),
       headers: { "Content-Type": "application/json" },
       method: "POST",
     });
 
     if (!response.ok || !response.body) {
+      const message = "The chat request failed. Try again.";
       setPending(false);
-      setError("The chat request failed. Try again.");
+      setError(message);
+      updateAssistantMessage(assistantMessageId, {
+        content: message,
+        pending: false,
+      });
       return;
     }
 
@@ -97,125 +135,184 @@ export function ChatPanel({
 
       if (event.type === "delta") {
         streamedAnswer += event.text;
-        setAnswer(streamedAnswer);
+        updateAssistantMessage(assistantMessageId, {
+          content: streamedAnswer,
+        });
         return;
       }
 
       if (event.type === "done") {
         streamedAnswer = event.answer;
-        setAnswer(event.answer);
-        setCitations(event.citations);
+        setActiveThreadId(event.threadId);
+        updateAssistantMessage(assistantMessageId, {
+          citations: event.citations,
+          content: event.answer,
+          pending: false,
+        });
         return;
       }
 
+      updateAssistantMessage(assistantMessageId, {
+        content: event.error,
+        pending: false,
+      });
       throw new Error(event.error);
     }
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) {
-        break;
-      }
-      const chunk = decoder.decode(value, { stream: true });
-      buffered += chunk;
-      const lines = buffered.split("\n");
-      buffered = lines.pop() ?? "";
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+        const chunk = decoder.decode(value, { stream: true });
+        buffered += chunk;
+        const lines = buffered.split("\n");
+        buffered = lines.pop() ?? "";
 
-      try {
         lines.forEach(handleLine);
-      } catch {
-        setError("The chat request failed. Try again.");
-        setPending(false);
-        return;
       }
-    }
 
-    if (buffered) {
-      try {
+      if (buffered) {
         handleLine(buffered);
-      } catch {
-        setError("The chat request failed. Try again.");
       }
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : "The chat request failed. Try again.",
+      );
+      updateAssistantMessage(assistantMessageId, { pending: false });
+    } finally {
+      setPending(false);
+      inputRef.current?.focus();
     }
-
-    setPending(false);
   }
 
   return (
-    <Card>
-      <CardBody className="space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-accent text-on-accent">
-            <Bot className="h-5 w-5" aria-hidden="true" />
-          </div>
-          <div>
-            <h2 className="text-base font-semibold text-ink">
-              Ask your knowledge
-            </h2>
-            <p className="text-sm text-body">
-              Answers search ready sources you own, with optional collection or
-              tag scope.
-            </p>
-          </div>
-        </div>
+    <section className="flex min-h-[calc(100vh-9rem)] flex-col overflow-hidden rounded-lg border border-border-subtle bg-surface shadow-card">
+      <div className="border-b border-border-subtle px-5 py-4">
+        <h1 className="text-lg font-bold text-ink">Chat with Your Knowledge</h1>
+        <p className="mt-1 text-sm text-body">
+          Ask grounded questions across all saved sources, or narrow retrieval
+          by collection.
+        </p>
+      </div>
 
-        <form className="space-y-3" onSubmit={onSubmit}>
-          <Label htmlFor="chat-message">Question</Label>
-          <Textarea
+      <div className="flex-1 space-y-5 overflow-y-auto bg-surface-subtle/50 px-5 py-5">
+        {messages.length === 0 ? (
+          <div className="flex min-h-64 items-center justify-center rounded-lg border border-dashed border-border-subtle bg-surface px-6 text-center">
+            <div className="max-w-md space-y-3">
+              <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-md bg-accent-tint text-accent">
+                <Bot className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <h2 className="text-base font-bold text-ink">
+                Start a grounded chat
+              </h2>
+              <p className="text-sm leading-6 text-body">
+                Ask about your saved notes, documents, and URLs. Use the filters
+                below when you want the answer to focus on one collection.
+              </p>
+            </div>
+          </div>
+        ) : (
+          messages.map((message) => (
+            <ChatBubble key={message.id} message={message} />
+          ))
+        )}
+
+        {error ? (
+          <p
+            className="rounded-lg border border-error/20 bg-error-tint px-3 py-2 text-sm font-medium text-error-strong"
+            role="alert"
+          >
+            {error}
+          </p>
+        ) : null}
+      </div>
+
+      <form
+        className="border-t border-border-subtle bg-surface px-5 py-4"
+        onSubmit={onSubmit}
+      >
+        <div className="mb-3 grid gap-3 sm:grid-cols-2">
+          <FilterSelect label="Collection" name="collectionId">
+            <option value="">All collections</option>
+            {collections.map((collection) => (
+              <option
+                key={collection.collection_id}
+                value={collection.collection_id}
+              >
+                {collection.name}
+              </option>
+            ))}
+          </FilterSelect>
+        </div>
+        <div className="flex items-center gap-2 rounded-lg border border-border-subtle bg-surface-raised p-2 shadow-control focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20">
+          <Sparkles
+            className="h-4 w-4 shrink-0 text-accent"
+            aria-hidden="true"
+          />
+          <label className="sr-only" htmlFor="chat-message">
+            Ask a question about your knowledge
+          </label>
+          <input
+            className="h-10 min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-muted"
+            disabled={pending}
             id="chat-message"
             name="message"
-            placeholder="What did I save about retrieval quality?"
+            placeholder="Ask a question about your knowledge..."
+            ref={inputRef}
             required
           />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <FilterSelect label="Collection" name="collectionId">
-              <option value="">All collections</option>
-              {collections.map((collection) => (
-                <option
-                  key={collection.collection_id}
-                  value={collection.collection_id}
-                >
-                  {collection.name}
-                </option>
-              ))}
-            </FilterSelect>
-            <FilterSelect label="Tag" name="tagId">
-              <option value="">All tags</option>
-              {tags.map((tag) => (
-                <option key={tag.tag_id} value={tag.tag_id}>
-                  {tag.name}
-                </option>
-              ))}
-            </FilterSelect>
-          </div>
-          {error ? (
-            <p className="rounded-md border border-error/40 bg-error-soft px-3 py-2 text-sm text-error">
-              {error}
-            </p>
-          ) : null}
-          <Button
+          <button
+            aria-label={pending ? "Sending question" : "Send question"}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-accent text-on-accent shadow-control hover:bg-accent-strong disabled:bg-accent-soft"
             disabled={pending}
-            icon={<Send className="h-4 w-4" />}
             type="submit"
           >
-            {pending ? "Answering..." : "Ask"}
-          </Button>
-        </form>
+            {pending ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <Send className="h-4 w-4" aria-hidden="true" />
+            )}
+          </button>
+        </div>
+        <p className="mt-2 text-xs text-muted" role="status">
+          {pending ? "Answering from your saved knowledge..." : ""}
+        </p>
+      </form>
+    </section>
+  );
+}
 
-        {answer ? (
-          <section
-            aria-live="polite"
-            className="rounded-md border border-border-subtle bg-surface-subtle p-4"
-          >
-            <h3 className="text-sm font-semibold text-ink">Answer</h3>
-            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-body">
-              {answer}
-            </p>
-            <CitationList citations={citations} />
-          </section>
-        ) : null}
-      </CardBody>
-    </Card>
+function ChatBubble({ message }: { message: ChatMessage }) {
+  if (message.role === "user") {
+    return (
+      <div className="flex justify-end gap-3">
+        <div className="max-w-xl rounded-lg bg-accent-soft px-4 py-3 text-sm font-medium leading-6 text-accent-strong">
+          {message.content}
+        </div>
+        <span className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-accent text-on-accent">
+          <User className="h-4 w-4" aria-hidden="true" />
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex gap-3">
+      <span className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-accent-tint text-accent">
+        <Bot className="h-4 w-4" aria-hidden="true" />
+      </span>
+      <article className="max-w-3xl rounded-lg border border-border-subtle bg-surface p-4 shadow-control">
+        <p className="whitespace-pre-wrap text-sm leading-6 text-body">
+          {message.content ||
+            (message.pending ? "Answering..." : "No answer returned.")}
+        </p>
+        <CitationList citations={message.citations ?? []} />
+      </article>
+    </div>
   );
 }
 
@@ -229,10 +326,10 @@ function FilterSelect({
   name: string;
 }) {
   return (
-    <label className="space-y-2">
+    <label className="space-y-1">
       <span className="text-xs font-medium uppercase text-muted">{label}</span>
       <select
-        className="h-11 w-full rounded-md border border-border-subtle bg-surface px-3 text-sm text-ink shadow-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+        className="h-10 w-full rounded-md border border-border-subtle bg-surface-raised px-3 text-sm text-ink shadow-control transition hover:border-border focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
         name={name}
       >
         {children}
@@ -257,23 +354,31 @@ export function CitationList({ citations }: { citations: Citation[] }) {
       <ol className="mt-2 space-y-2">
         {citations.map((citation) => (
           <li
-            className="rounded-md border border-border-subtle bg-surface px-3 py-2 text-sm text-body"
+            className="rounded-lg border border-border-subtle bg-surface-raised px-3 py-3 text-sm text-body"
             key={citation.citation_id}
           >
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-sm bg-accent-soft px-2 py-1 text-xs font-semibold text-accent">
-                [{citation.rank}]
+            <div className="flex items-start gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent-tint text-accent">
+                <FileText className="h-4 w-4" aria-hidden="true" />
               </span>
-              <span className="font-semibold text-ink">
-                {citation.source_title_snapshot}
-              </span>
-              <span className="text-xs text-muted">Chunk {citation.rank}</span>
+              <div className="min-w-0">
+                <p className="font-semibold text-ink">
+                  {citation.source_title_snapshot}
+                </p>
+                <p className="mt-1 text-xs text-muted">
+                  [{citation.rank}] · Chunk {citation.rank}
+                </p>
+                {citation.quote ? (
+                  <p className="mt-2 text-sm leading-6 text-body">
+                    {citation.quote}
+                  </p>
+                ) : null}
+              </div>
+              <Link2
+                className="ml-auto h-4 w-4 shrink-0 text-muted"
+                aria-hidden="true"
+              />
             </div>
-            {citation.quote ? (
-              <blockquote className="mt-2 border-l-2 border-border pl-3 text-sm leading-6 text-body">
-                {citation.quote}
-              </blockquote>
-            ) : null}
           </li>
         ))}
       </ol>

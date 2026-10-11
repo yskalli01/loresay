@@ -8,6 +8,28 @@ import {
 import { getSessionUser } from "@/infrastructure/auth/session";
 import { knowledgeRepository } from "@/infrastructure/db/knowledge-repository";
 
+function chatErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message === "Gemini request timed out") {
+    return "Gemini took too long to answer. Try again, or narrow the question.";
+  }
+
+  if (
+    error instanceof Error &&
+    error.message.startsWith("Gemini answer generation failed:")
+  ) {
+    return error.message;
+  }
+
+  if (
+    error instanceof Error &&
+    error.message.startsWith("Gemini embedding generation failed:")
+  ) {
+    return error.message;
+  }
+
+  return "The chat request failed. Try again.";
+}
+
 export async function POST(request: Request) {
   const user = await getSessionUser();
 
@@ -19,17 +41,12 @@ export async function POST(request: Request) {
     message?: unknown;
     threadId?: unknown;
     collectionId?: unknown;
-    tagId?: unknown;
   };
   const message = typeof body.message === "string" ? body.message : "";
   const threadId = typeof body.threadId === "string" ? body.threadId : null;
   const collectionId =
     typeof body.collectionId === "string" && body.collectionId.trim()
       ? body.collectionId.trim()
-      : undefined;
-  const tagId =
-    typeof body.tagId === "string" && body.tagId.trim()
-      ? body.tagId.trim()
       : undefined;
 
   if (!message.trim()) {
@@ -52,7 +69,7 @@ export async function POST(request: Request) {
             onDelta(delta) {
               enqueue({ text: delta, type: "delta" });
             },
-            filters: { collectionId, tagId },
+            filters: { collectionId },
             owner: { userId: user.id },
             question: message,
             repository: knowledgeRepository,
@@ -65,8 +82,8 @@ export async function POST(request: Request) {
             threadId: result.threadId,
             type: "done",
           });
-        } catch {
-          enqueue({ error: "The chat request failed", type: "error" });
+        } catch (error) {
+          enqueue({ error: chatErrorMessage(error), type: "error" });
         } finally {
           controller.close();
         }

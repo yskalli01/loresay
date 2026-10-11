@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { knowledgeRepository } from "@/infrastructure/db/knowledge-repository";
 import { createSupabaseServerClient } from "@/infrastructure/supabase/server";
 
+import { signInErrorMessage, signUpErrorMessage } from "./auth-errors";
+
 export type AuthActionState = {
   error?: string;
 };
@@ -33,7 +35,7 @@ export async function signInWithPassword(
   });
 
   if (error || !data.user) {
-    return { error: "We could not sign you in with those credentials." };
+    return { error: signInErrorMessage(error) };
   }
 
   await knowledgeRepository.ensureProfile({
@@ -49,7 +51,14 @@ export async function signUpWithPassword(
   formData: FormData,
 ): Promise<AuthActionState> {
   const { email, password } = readCredentials(formData);
+  const displayName = String(formData.get("displayName") ?? "").trim();
 
+  if (!displayName) {
+    return { error: "Enter your name." };
+  }
+  if (displayName.length > 80) {
+    return { error: "Name must be 80 characters or fewer." };
+  }
   if (!email || password.length < 8) {
     return { error: "Use an email and a password of at least 8 characters." };
   }
@@ -57,15 +66,16 @@ export async function signUpWithPassword(
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.signUp({
     email,
+    options: { data: { display_name: displayName } },
     password,
   });
 
   if (error || !data.user) {
-    return { error: "We could not create that account." };
+    return { error: signUpErrorMessage(error) };
   }
 
   await knowledgeRepository.ensureProfile({
-    displayName: data.user.email,
+    displayName,
     owner: { userId: data.user.id },
   });
 

@@ -18,6 +18,15 @@ export type OwnerContext = {
   userId: OwnerId;
 };
 
+export type ProfileDto = {
+  id: OwnerId;
+  displayName: string | null;
+  avatarStoragePath: string | null;
+  avatarUpdatedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 export type KnowledgeSourceRecord = {
   id: KnowledgeSourceId;
   userId: OwnerId;
@@ -85,6 +94,7 @@ export type AnswerCitationInput = {
 export type PaginatedSourceSummaries = {
   items: SourceSummaryDto[];
   next_cursor: string | null;
+  total: number;
 };
 
 export type SourceListFilters = {
@@ -92,23 +102,35 @@ export type SourceListFilters = {
   status?: SourceStatus;
   type?: SourceType;
   collectionId?: string;
-  tagId?: string;
+  createdFrom?: string;
+  createdTo?: string;
 };
 
 export type RetrievalFilters = {
   collectionId?: string;
-  tagId?: string;
 };
 export type CollectionSummaryDto = {
   collection_id: string;
+  created_at: Date;
+  description?: string | null;
+  image_url: string | null;
   name: string;
   source_count: number;
+  updated_at: Date;
 };
 
-export type TagSummaryDto = {
-  tag_id: string;
-  name: string;
-  source_count: number;
+export type CollectionListFilters = {
+  createdFrom?: string;
+  createdTo?: string;
+  hasImage?: boolean;
+  hasSources?: boolean;
+  query?: string;
+  sort?: "name" | "newest" | "source_count" | "updated";
+};
+
+export type CollectionDetailDto = {
+  collection: CollectionSummaryDto;
+  sources: SourceSummaryDto[];
 };
 
 export type SourceDetailDto = {
@@ -118,7 +140,17 @@ export type SourceDetailDto = {
   };
   active_content_text: string | null;
   collections: CollectionSummaryDto[];
-  tags: TagSummaryDto[];
+};
+
+export type SourceCitationDto = {
+  chunk_position: number;
+  citation_id: string;
+  cited_at: Date;
+  content_version: number;
+  quote: string | null;
+  rank: number;
+  thread_id: string;
+  thread_title: string;
 };
 
 export type KnowledgeExportDto = {
@@ -139,20 +171,12 @@ export type KnowledgeExportDto = {
   collections: Array<{
     collection_id: string;
     name: string;
+    image_url: string | null;
     created_at: Date;
     updated_at: Date;
   }>;
-  tags: Array<{
-    tag_id: string;
-    name: string;
-    created_at: Date;
-  }>;
   collection_sources: Array<{
     collection_id: string;
-    source_id: KnowledgeSourceId;
-  }>;
-  source_tags: Array<{
-    tag_id: string;
     source_id: KnowledgeSourceId;
   }>;
   chat_threads: Array<{
@@ -207,6 +231,21 @@ export interface KnowledgeRepository {
     displayName?: string | null;
   }): Promise<void>;
 
+  getProfile(input: { owner: OwnerContext }): Promise<ProfileDto | null>;
+
+  updateProfile(input: {
+    owner: OwnerContext;
+    displayName: string | null;
+  }): Promise<ProfileDto>;
+
+  updateProfileAvatar(input: {
+    owner: OwnerContext;
+    avatarStoragePath: string | null;
+    avatarUpdatedAt: Date | null;
+  }): Promise<ProfileDto>;
+
+  deleteProfile(input: { owner: OwnerContext }): Promise<void>;
+
   createKnowledgeSource(input: {
     owner: OwnerContext;
     type: SourceType;
@@ -230,6 +269,7 @@ export interface KnowledgeRepository {
   updateKnowledgeSourceDetails(input: {
     owner: OwnerContext;
     sourceId: KnowledgeSourceId;
+    fingerprint: string;
     title: string;
     metadata: JsonObject;
     status: SourceStatus;
@@ -282,6 +322,7 @@ export interface KnowledgeRepository {
     owner: OwnerContext;
     cursor?: string;
     limit?: number;
+    offset?: number;
     filters?: SourceListFilters;
   }): Promise<PaginatedSourceSummaries>;
 
@@ -295,6 +336,11 @@ export interface KnowledgeRepository {
     sourceId: KnowledgeSourceId;
   }): Promise<SourceDetailDto | null>;
 
+  listSourceCitations(input: {
+    owner: OwnerContext;
+    sourceId: KnowledgeSourceId;
+  }): Promise<SourceCitationDto[]>;
+
   exportOwnedKnowledge(input: {
     owner: OwnerContext;
   }): Promise<KnowledgeExportDto>;
@@ -305,13 +351,39 @@ export interface KnowledgeRepository {
   }): Promise<{ sourceId: KnowledgeSourceId; purgedAt: Date }>;
 
   listCollections(input: {
+    filters?: CollectionListFilters;
     owner: OwnerContext;
   }): Promise<CollectionSummaryDto[]>;
 
+  getCollectionDetail(input: {
+    collectionId: string;
+    owner: OwnerContext;
+  }): Promise<CollectionDetailDto | null>;
+
   createCollection(input: {
+    description?: string | null;
+    imageUrl?: string | null;
     owner: OwnerContext;
     name: string;
   }): Promise<CollectionSummaryDto>;
+
+  updateCollection(input: {
+    collectionId: string;
+    description?: string | null;
+    imageUrl: string | null;
+    name: string;
+    owner: OwnerContext;
+  }): Promise<CollectionSummaryDto>;
+
+  deleteCollection(input: {
+    collectionId: string;
+    owner: OwnerContext;
+  }): Promise<void>;
+
+  deleteCollections(input: {
+    collectionIds: string[];
+    owner: OwnerContext;
+  }): Promise<void>;
 
   addSourceToCollection(input: {
     owner: OwnerContext;
@@ -319,28 +391,15 @@ export interface KnowledgeRepository {
     sourceId: KnowledgeSourceId;
   }): Promise<void>;
 
-  listTags(input: { owner: OwnerContext }): Promise<TagSummaryDto[]>;
-
-  createTag(input: {
+  removeSourceFromCollection(input: {
     owner: OwnerContext;
-    name: string;
-  }): Promise<TagSummaryDto>;
-
-  addTagToSource(input: {
-    owner: OwnerContext;
-    tagId: string;
+    collectionId: string;
     sourceId: KnowledgeSourceId;
   }): Promise<void>;
 
   assertCollectionAndSourceShareOwner(input: {
     owner: OwnerContext;
     collectionId: string;
-    sourceId: KnowledgeSourceId;
-  }): Promise<void>;
-
-  assertTagAndSourceShareOwner(input: {
-    owner: OwnerContext;
-    tagId: string;
     sourceId: KnowledgeSourceId;
   }): Promise<void>;
 
@@ -387,8 +446,12 @@ export interface KnowledgeRepository {
 
   getDashboardSummary(input: { owner: OwnerContext }): Promise<{
     collections: CollectionSummaryDto[];
+    metrics: {
+      totalSources: number;
+      noteSources: number;
+      unsortedSources: number;
+    };
     sources: SourceSummaryDto[];
-    tags: TagSummaryDto[];
     ingestion: {
       queuedCount: number;
       processingCount: number;

@@ -40,6 +40,25 @@ pnpm run test
 
 Stored in `docs/specs/`. Format: `docs/specs/NNNN-title.md`.
 
+## How to work
+
+Follow this loop for every request:
+
+1. Read this file, then the skills the user named, then any supporting skills you clearly need.
+2. Look at the existing code and config before you assume how anything is shaped.
+3. Ask one focused question only if the task is genuinely ambiguous.
+4. Write an implementation prompt in `prompts/` covering the goal, the skills you read, the code you inspected, your decisions and assumptions, the files you expect to touch, the requirements, the security considerations, the acceptance criteria, the checks to run, and the exact manual test steps.
+5. Ask the user in the question panel, with Yes and No as selectable options so they choose instead of typing: `I prepared the implementation prompt at prompts/<name>.md. Is this good to execute?`
+6. Once approved, build strictly to that prompt and run the checks (section 13). Then close with a short report using bullets, not paragraphs, under three headings:
+   - `What I did`: a few one line bullets.
+   - `Test`: numbered steps to run or see.
+   - `Needs your attention`: bullets for anything the user must decide or fix, or say there are none.
+     Keep every line short. Put detail and rationale in the prompt file, not in this report.
+
+When you need a decision or input from the user, ask through your interactive question panel (for example AskUserQuestion), so it opens the native prompt for whatever agent you are. Use plain text only if you have no such panel.
+
+Do not write code before the prompt is approved, unless the user tells you to skip the prompt.
+
 ## Rules
 
 1. Use Clean Architecture unless a later spec records a different choice.
@@ -64,6 +83,10 @@ Stored in `docs/specs/`. Format: `docs/specs/NNNN-title.md`.
 4. Test the full suite with Vitest via `pnpm run test`.
 5. Run browser flows with Playwright via `pnpm run test:e2e` only when an end to end surface needs proof.
 6. Use `pnpm run quality:deadline` while iterating and `pnpm run quality` before final delivery or merge.
+
+## Design
+
+You do not design UI. The user gives you the design as desktop images plus a prompt. Reproduce them exactly: layout, spacing, typography, color, and states. There is no mobile reference, so make each page responsive down to mobile, adapting the layout sensibly while keeping the desktop exact. Do not restyle or improve beyond the reference unless explicitly told so. When there is a reference image, it is the source of truth.
 
 ## Git
 

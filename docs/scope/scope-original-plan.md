@@ -57,7 +57,7 @@ Model users, knowledge items, source records, extracted content, chunks, embeddi
 - [x] Build it: `/develop core data model`
   - [x] Domain enums, limits, DTO shapes, and source type rules, covers AC-1, AC-3, AC-5, AC-6
   - [x] Source, content, chunk, embedding, and ingestion schema plus use cases, covers AC-1, AC-2, AC-3, AC-6
-  - [x] Collections, tags, and same user organization links, covers AC-4, AC-6
+  - [x] Collections and same user organization links, covers AC-4, AC-6
   - [x] Chat, retrieval, result, and purge safe citation records, covers AC-5, AC-6, AC-7
   - [x] Owner scoped policies, invariants, and data model tests, covers AC-1 through AC-7
   - [x] Apply the generated migration to Supabase and confirm the live schema
@@ -129,7 +129,7 @@ Give users a fast way to write, edit, and reprocess their own notes inside the k
 
 ### 9. Knowledge organization · needs a decision
 
-Add collections, tags, search, filters, and source detail pages so the user can browse and curate stored knowledge without relying only on chat.
+Add collections, search, filters, and source detail pages so the user can browse and curate stored knowledge without relying only on chat.
 **Done when:** a user can group sources, find a known item, inspect its extracted content, and control whether it participates in retrieval.
 
 - [ ] Design it (spec): `/architect knowledge organization`

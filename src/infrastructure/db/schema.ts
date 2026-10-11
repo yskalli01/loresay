@@ -48,6 +48,8 @@ export const chatRoleEnum = pgEnum("chat_role", chatRoles);
 
 export const profiles = pgTable("profiles", {
   id: uuid("id").primaryKey(),
+  avatarStoragePath: text("avatar_storage_path"),
+  avatarUpdatedAt: timestamp("avatar_updated_at", { withTimezone: true }),
   displayName: text("display_name"),
   ...timestamps,
 });
@@ -216,11 +218,21 @@ export const collections = pgTable(
       .notNull()
       .references(() => profiles.id, { onDelete: "cascade" }),
     name: varchar("name", { length: 200 }).notNull(),
+    description: text("description"),
+    imageUrl: text("image_url"),
     ...timestamps,
   },
   (table) => [
     uniqueIndex("collections_user_name_idx").on(table.userId, table.name),
     check("collections_name_limit", sql`char_length(${table.name}) <= 200`),
+    check(
+      "collections_description_limit",
+      sql`${table.description} is null or char_length(${table.description}) <= 1000`,
+    ),
+    check(
+      "collections_image_url_limit",
+      sql`${table.imageUrl} is null or char_length(${table.imageUrl}) <= 2000`,
+    ),
   ],
 );
 
@@ -242,45 +254,7 @@ export const collectionSources = pgTable(
       columns: [table.collectionId, table.sourceId],
       name: "collection_sources_pk",
     }),
-  ],
-);
-
-export const tags = pgTable(
-  "tags",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => profiles.id, { onDelete: "cascade" }),
-    name: varchar("name", { length: 40 }).notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-  (table) => [
-    uniqueIndex("tags_user_name_idx").on(table.userId, table.name),
-    check("tags_name_limit", sql`char_length(${table.name}) <= 40`),
-  ],
-);
-
-export const sourceTags = pgTable(
-  "source_tags",
-  {
-    sourceId: uuid("source_id")
-      .notNull()
-      .references(() => knowledgeSources.id, { onDelete: "cascade" }),
-    tagId: uuid("tag_id")
-      .notNull()
-      .references(() => tags.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-  (table) => [
-    primaryKey({
-      columns: [table.sourceId, table.tagId],
-      name: "source_tags_pk",
-    }),
+    index("collection_sources_source_idx").on(table.sourceId),
   ],
 );
 
