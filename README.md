@@ -61,4 +61,4 @@ pnpm run db:verify
 
 ## Deployment
 
-The app is ready for a Node.js 24 deployment such as Vercel. Add the variables from `.env.example` to the deployment environment, connect the same Supabase project, and use `pnpm run build` as the production build command.
+The app is ready for a Node.js 24 deployment such as Vercel. Add the variables from `.env.example` to the deployment environment, connect the same Supabase project, and use `pnpm run build` as the production build command. Pushes to `main` deploy automatically through the connected GitHub repository.
