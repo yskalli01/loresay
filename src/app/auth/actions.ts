@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { knowledgeRepository } from "@/infrastructure/db/knowledge-repository";
@@ -9,6 +10,7 @@ import { signInErrorMessage, signUpErrorMessage } from "./auth-errors";
 
 export type AuthActionState = {
   error?: string;
+  message?: string;
 };
 
 function readCredentials(formData: FormData) {
@@ -80,6 +82,38 @@ export async function signUpWithPassword(
   });
 
   redirect("/");
+}
+
+export async function requestPasswordReset(
+  _state: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const email = String(formData.get("email") ?? "").trim();
+
+  if (!email) {
+    return { error: "Enter your email address." };
+  }
+
+  const origin = (await headers()).get("origin");
+  if (!origin) {
+    return {
+      error: "Password recovery is unavailable. Refresh and try again.",
+    };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: new URL("/auth/callback?next=/account", origin).toString(),
+  });
+
+  if (error) {
+    return { error: signInErrorMessage(error) };
+  }
+
+  return {
+    message:
+      "Check your email for a password reset link. You can set a new password from your account page.",
+  };
 }
 
 export async function signOut() {

@@ -34,9 +34,7 @@ describe("Gemini thin loop gateways", () => {
 
     expect(embedding).toHaveLength(1536);
     expect(embedding[0]).toBeCloseTo(1 / Math.sqrt(1536));
-    expect(url.toString()).toContain(
-      "models/gemini-embedding-2:embedContent",
-    );
+    expect(url.toString()).toContain("models/gemini-embedding-2:embedContent");
     expect(body.embedContentConfig).toEqual({
       outputDimensionality: 1536,
       taskType: "RETRIEVAL_QUERY",
@@ -73,5 +71,3 @@ describe("Gemini thin loop gateways", () => {
     });
   });
 });
-
-

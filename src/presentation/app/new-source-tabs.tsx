@@ -49,7 +49,7 @@ export function NewSourceTabs() {
   }
 
   return (
-    <section className="space-y-5" aria-labelledby="new-source-tabs-title">
+    <section className="space-y-4" aria-labelledby="new-source-tabs-title">
       <div>
         <h2 className="text-base font-bold text-ink" id="new-source-tabs-title">
           Add source
@@ -62,7 +62,7 @@ export function NewSourceTabs() {
 
       <div
         aria-label="Source type"
-        className="grid gap-3 sm:grid-cols-3"
+        className="grid grid-cols-3 gap-1 rounded-lg border border-border-subtle bg-surface-subtle p-1"
         onKeyDown={handleKeyDown}
         role="tablist"
       >
@@ -75,8 +75,8 @@ export function NewSourceTabs() {
               aria-selected={selected}
               className={
                 selected
-                  ? "flex min-h-24 flex-col items-center justify-center gap-2 rounded-lg border border-accent bg-accent-tint text-sm font-semibold text-accent-strong shadow-card transition hover:bg-accent-tint focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                  : "flex min-h-24 flex-col items-center justify-center gap-2 rounded-lg border border-border-subtle bg-surface-raised text-sm font-semibold text-body shadow-sm transition hover:border-accent/25 hover:bg-accent-tint/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  ? "flex min-h-11 items-center justify-center gap-2 rounded-md bg-surface px-3 text-sm font-semibold text-accent-strong shadow-control transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  : "flex min-h-11 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold text-body transition hover:bg-surface/70 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               }
               id={`${idBase}-${tab.id}-tab`}
               key={tab.id}

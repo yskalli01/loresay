@@ -15,7 +15,7 @@ import {
   updateKnowledgeSourceAction,
   type NoteActionState,
 } from "@/app/actions/knowledge";
-import { Button, Input, Label } from "@/presentation/ui";
+import { Button, FileUploadField, Input, Label } from "@/presentation/ui";
 
 import { MarkdownEditorField } from "./markdown-editor-field";
 
@@ -145,7 +145,7 @@ function SourceEditModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/35 p-4"
+      className="fixed inset-0 z-50 flex overflow-y-auto bg-ink/35 p-4 sm:p-6"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
           onClose();
@@ -156,7 +156,7 @@ function SourceEditModal({
         aria-describedby="source-edit-description"
         aria-labelledby="source-edit-title"
         aria-modal="true"
-        className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-lg border border-border-subtle bg-surface shadow-panel"
+        className="my-auto max-h-[calc(100dvh-2rem)] w-full max-w-3xl overflow-y-auto rounded-lg border border-border-subtle bg-surface shadow-panel sm:mx-auto sm:max-h-[calc(100dvh-3rem)]"
         ref={dialogRef}
         role="dialog"
       >
@@ -211,18 +211,13 @@ function SourceEditModal({
 
           {type === "document" ? (
             <div className="space-y-2">
-              <Label htmlFor={`source-document-${sourceId}`}>
-                Replacement file
-              </Label>
-              <Input
+              <FileUploadField
                 accept=".md,.markdown,.txt,text/markdown,text/plain"
+                description="Plain text or Markdown up to 256 KB"
                 id={`source-document-${sourceId}`}
+                label="Choose a replacement file"
                 name="document"
-                type="file"
               />
-              <p className="text-xs text-muted">
-                Optional. Plain text or Markdown, up to 256 KB.
-              </p>
             </div>
           ) : null}
 

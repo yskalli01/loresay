@@ -16,22 +16,11 @@ export default async function AccountPage() {
 
   return (
     <AppShell activePath="/account">
-      <div className="space-y-5">
-        <div>
-          <h1 className="text-2xl font-bold tracking-normal text-ink">
-            Account
-          </h1>
-          <p className="mt-1 text-sm text-body">
-            Manage your identity, security, and profile photo.
-          </p>
-        </div>
-        <AccountForms
-          avatarUrl={avatarUrl}
-          displayName={displayName}
-          email={email}
-          userId={user.id}
-        />
-      </div>
+      <AccountForms
+        avatarUrl={avatarUrl}
+        displayName={displayName}
+        email={email}
+      />
     </AppShell>
   );
 }

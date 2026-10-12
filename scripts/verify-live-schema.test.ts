@@ -13,6 +13,11 @@ const migration = readFileSync(
   "utf8",
 );
 
+const droppedTagsMigration = readFileSync(
+  resolve(process.cwd(), "drizzle/0003_drop_tags.sql"),
+  "utf8",
+);
+
 const expectedTables = [
   "profiles",
   "knowledge_sources",
@@ -22,8 +27,6 @@ const expectedTables = [
   "ingestion_jobs",
   "collections",
   "collection_sources",
-  "tags",
-  "source_tags",
   "chat_threads",
   "chat_messages",
   "retrieval_runs",
@@ -56,5 +59,12 @@ describe("live schema verifier", () => {
     expect(script).toContain("missingTables.length > 0");
     expect(script).toContain("!summary.vectorExtension");
     expect(script).toContain("process.exitCode = 1");
+  });
+
+  it("does not require tables removed by later migrations", () => {
+    expect(droppedTagsMigration).toContain("drop table if exists source_tags");
+    expect(droppedTagsMigration).toContain("drop table if exists tags");
+    expect(script).not.toContain('"source_tags"');
+    expect(script).not.toContain('"tags"');
   });
 });

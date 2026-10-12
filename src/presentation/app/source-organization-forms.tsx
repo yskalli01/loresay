@@ -27,7 +27,7 @@ export function SourceOrganizationForms({
   return (
     <form
       action={collectionAction}
-      className="space-y-3 rounded-md border border-border-subtle bg-surface-subtle p-4"
+      className="space-y-2 border-t border-border-subtle pt-3"
     >
       <input name="sourceId" type="hidden" value={sourceId} />
       <Label htmlFor="source-collection">Attach collection</Label>

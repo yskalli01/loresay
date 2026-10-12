@@ -77,57 +77,62 @@ export function SourceLibraryTable({
   }
 
   return (
-    <form action={bulkAction} className="space-y-3">
-      <div className="flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface-subtle p-3 sm:flex-row sm:items-center sm:justify-between">
-        <label className="inline-flex items-center gap-3 text-sm font-semibold text-ink">
-          <input
-            checked={allVisibleSelected}
-            className="h-4 w-4 rounded border-border text-accent focus:ring-accent"
-            onChange={toggleAllVisible}
-            type="checkbox"
-          />
-          Select visible sources
-        </label>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <p className="text-sm text-body">
-            {selectedCount === 0
-              ? "No sources selected"
-              : `${selectedCount} selected`}
-          </p>
-          {selectedSourceIds.map((sourceId) => (
+    <div className="space-y-2">
+      <form action={bulkAction} className="space-y-2">
+        <div className="flex flex-col gap-2 rounded-md bg-surface-subtle px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+          <label className="inline-flex items-center gap-3 text-sm font-semibold text-ink">
             <input
-              key={sourceId}
-              name="sourceIds"
-              type="hidden"
-              value={sourceId}
+              checked={allVisibleSelected}
+              className="h-4 w-4 rounded border-border text-accent focus:ring-accent"
+              onChange={toggleAllVisible}
+              type="checkbox"
             />
-          ))}
-          <Button
-            disabled={bulkPending || selectedCount === 0}
-            icon={<Trash2 className="h-4 w-4" />}
-            type="submit"
-            variant="danger"
-          >
-            {bulkPending ? "Deleting..." : "Delete Selected"}
-          </Button>
+            Select visible sources
+          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm text-body">
+              {selectedCount === 0
+                ? "No sources selected"
+                : `${selectedCount} selected`}
+            </p>
+            {selectedSourceIds.map((sourceId) => (
+              <input
+                key={sourceId}
+                name="sourceIds"
+                type="hidden"
+                value={sourceId}
+              />
+            ))}
+            <Button
+              disabled={bulkPending || selectedCount === 0}
+              icon={<Trash2 className="h-4 w-4" />}
+              type="submit"
+              variant="danger"
+            >
+              {bulkPending ? "Deleting..." : "Delete selected"}
+            </Button>
+          </div>
         </div>
-      </div>
-      <ActionMessage state={bulkState} />
+        <ActionMessage state={bulkState} />
+      </form>
 
-      <div className="overflow-hidden rounded-lg border border-border-subtle bg-surface">
-        <div className="overflow-x-auto">
+      <div className="hidden overflow-hidden rounded-md border border-border-subtle bg-surface md:block">
+        <div className="overflow-x-auto" aria-label="Saved sources table">
           <table className="w-full border-collapse text-left text-sm">
+            <caption className="sr-only">
+              Saved sources with type, status, collection, and date added
+            </caption>
             <thead>
               <tr className="border-b border-border-subtle bg-surface-raised text-xs font-semibold text-muted">
-                <th className="w-10 px-4 py-3">
+                <th className="w-10 px-3 py-2.5">
                   <span className="sr-only">Select</span>
                 </th>
-                <th className="px-3 py-3">Title</th>
-                <th className="px-3 py-3">Type</th>
-                <th className="px-3 py-3">Status</th>
-                <th className="px-3 py-3">Collection</th>
-                <th className="px-3 py-3">Added</th>
-                <th className="px-3 py-3 text-right">
+                <th className="px-3 py-2.5">Title</th>
+                <th className="px-3 py-2.5">Type</th>
+                <th className="px-3 py-2.5">Status</th>
+                <th className="px-3 py-2.5">Collection</th>
+                <th className="px-3 py-2.5">Added</th>
+                <th className="px-3 py-2.5 text-right">
                   <span className="sr-only">Actions</span>
                 </th>
               </tr>
@@ -138,7 +143,7 @@ export function SourceLibraryTable({
                   className="border-b border-border-subtle last:border-0 hover:bg-surface-subtle"
                   key={source.source_id}
                 >
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2.5">
                     <input
                       aria-label={`Select ${source.title}`}
                       checked={selectedSourceIds.includes(source.source_id)}
@@ -147,7 +152,7 @@ export function SourceLibraryTable({
                       type="checkbox"
                     />
                   </td>
-                  <td className="min-w-72 px-3 py-3">
+                  <td className="min-w-56 px-3 py-2.5">
                     <Link
                       className="flex items-center gap-3 font-semibold text-ink hover:text-accent"
                       href={`/sources/${source.source_id}`}
@@ -158,23 +163,23 @@ export function SourceLibraryTable({
                       <span className="truncate">{source.title}</span>
                     </Link>
                   </td>
-                  <td className="px-3 py-3">
+                  <td className="px-3 py-2.5">
                     <Badge tone={sourceTypeTone(source.type)}>
                       {source.type}
                     </Badge>
                   </td>
-                  <td className="px-3 py-3">
+                  <td className="px-3 py-2.5">
                     <Badge tone={sourceStatusTone(source.status)}>
                       {source.status}
                     </Badge>
                   </td>
-                  <td className="px-3 py-3 text-body">
+                  <td className="px-3 py-2.5 text-body">
                     {collectionNameFor(source, pageStart + index)}
                   </td>
-                  <td className="px-3 py-3 text-body">
+                  <td className="px-3 py-2.5 text-body">
                     {formatDisplayDate(source.created_at)}
                   </td>
-                  <td className="px-3 py-3 text-right">
+                  <td className="px-3 py-2.5 text-right">
                     <RowActionMenu
                       isOpen={openMenuSourceId === source.source_id}
                       onToggle={() =>
@@ -194,7 +199,51 @@ export function SourceLibraryTable({
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface-subtle px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+      <ul className="divide-y divide-border-subtle overflow-hidden rounded-md border border-border-subtle md:hidden">
+        {pageSources.map((source, index) => (
+          <li
+            className="flex items-start gap-3 bg-surface p-3"
+            key={source.source_id}
+          >
+            <input
+              aria-label={`Select ${source.title}`}
+              checked={selectedSourceIds.includes(source.source_id)}
+              className="mt-2 h-4 w-4 rounded border-border text-accent focus:ring-accent"
+              onChange={() => toggleSource(source.source_id)}
+              type="checkbox"
+            />
+            <div className="min-w-0 flex-1">
+              <Link
+                className="block truncate text-sm font-semibold text-ink hover:text-accent"
+                href={`/sources/${source.source_id}`}
+              >
+                {source.title}
+              </Link>
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <Badge tone={sourceTypeTone(source.type)}>{source.type}</Badge>
+                <Badge tone={sourceStatusTone(source.status)}>
+                  {source.status}
+                </Badge>
+              </div>
+              <p className="mt-2 text-xs text-muted">
+                {collectionNameFor(source, pageStart + index)} /{" "}
+                {formatDisplayDate(source.created_at)}
+              </p>
+            </div>
+            <RowActionMenu
+              isOpen={openMenuSourceId === source.source_id}
+              onToggle={() =>
+                setOpenMenuSourceId((current) =>
+                  current === source.source_id ? null : source.source_id,
+                )
+              }
+              source={source}
+            />
+          </li>
+        ))}
+      </ul>
+
+      <div className="flex flex-col gap-2 rounded-md bg-surface-subtle px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-body">
           Showing {pageStart + 1}-
           {Math.min(pageStart + rowsPerPage, sources.length)} of{" "}
@@ -228,7 +277,7 @@ export function SourceLibraryTable({
           </Button>
         </div>
       </div>
-    </form>
+    </div>
   );
 }
 

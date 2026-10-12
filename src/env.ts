@@ -111,5 +111,3 @@ export const serverEnv = {
 };
 
 export const requiredEnv = [...requiredPublicEnv, ...requiredServerEnv];
-
-

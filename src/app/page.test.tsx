@@ -185,11 +185,15 @@ vi.mock("@/infrastructure/db/knowledge-repository", () => ({
 }));
 
 vi.mock("./auth/actions", () => ({
+  signInWithPassword: vi.fn(),
   signOut: vi.fn(),
+  signUpWithPassword: vi.fn(),
 }));
 
 vi.mock("@/app/auth/actions", () => ({
+  signInWithPassword: vi.fn(),
   signOut: vi.fn(),
+  signUpWithPassword: vi.fn(),
 }));
 
 vi.mock("@/app/account/actions", () => ({
@@ -256,7 +260,9 @@ describe("Knowledge workspace routes", () => {
   it("renders the shell with distinct navigation destinations, covers AC-1", async () => {
     const html = await renderRoute(() => import("./page"));
 
-    expect(html).toContain("Knowledge Base");
+    expect(html).toContain("Loresay");
+    expect(html).toContain("loresay-lockup.png");
+    expect(html).not.toContain("Knowledge Base");
     expect(html).toContain("Primary navigation");
     expect(html).toContain("Dashboard");
     expect(html).toContain("Sources");
@@ -274,16 +280,34 @@ describe("Knowledge workspace routes", () => {
     expect(html).toContain('aria-label="Switch to dark theme"');
   });
 
+  it("renders the Loresay identity on the authentication page", async () => {
+    const { default: AuthPage } = await import("./auth/page");
+    const html = await renderMarkup(<AuthPage />);
+
+    expect(html).toContain("Loresay");
+    expect(html).toContain("loresay-lockup.png");
+    expect(html).toContain("auth-library.webp");
+    expect(html).toContain("Keep what matters. Find it when you need it.");
+    expect(html).not.toContain("Private by default");
+    expect(html).not.toContain("Cited answers");
+    expect(html).not.toContain("Ready for retrieval");
+    expect(html).not.toContain("Private, grounded answers");
+    expect(html).toContain('type="email"');
+    expect(html).toContain('type="password"');
+    expect(html).not.toContain("Google");
+    expect(html).not.toContain("AI Knowledge");
+  });
+
   it("keeps the overview focused on status and recent work, covers AC-2", async () => {
     const html = await renderRoute(() => import("./page"));
 
-    expect(html).toContain("Quick Add");
+    expect(html).toContain("Ask AI");
     expect(html).toContain("Recent Activity");
     expect(html).toContain("Top Collections");
     expect(html).toContain("Retrieval notes");
-    expect(html).toContain("New Source");
+    expect(html).toContain("New source");
     expect(html).toMatch(
-      /Sources[\s\S]*128[\s\S]*Total Sources[\s\S]*Collections[\s\S]*2[\s\S]*Collections[\s\S]*Notes[\s\S]*42[\s\S]*Note Sources[\s\S]*Unsorted[\s\S]*7[\s\S]*Not in a Collection/,
+      /128[\s\S]*Sources[\s\S]*Total Sources[\s\S]*2[\s\S]*Collections[\s\S]*Collections[\s\S]*42[\s\S]*Notes[\s\S]*Note Sources[\s\S]*7[\s\S]*Unsorted[\s\S]*Not in a Collection/,
     );
     expect(html).toContain('href="/new-source"');
     expect(html).not.toContain("Ready Sources");
@@ -396,7 +420,7 @@ describe("Knowledge workspace routes", () => {
 
     // The Collections metric keeps showing the total, not the capped card length.
     expect(html).toMatch(
-      /Sources[\s\S]*>7<[\s\S]*Total Sources[\s\S]*Collections[\s\S]*>7<[\s\S]*Collections[\s\S]*Notes/,
+      />7<[\s\S]*Sources[\s\S]*Total Sources[\s\S]*>7<[\s\S]*Collections[\s\S]*Collections[\s\S]*Notes/,
     );
   });
 
@@ -421,7 +445,7 @@ describe("Knowledge workspace routes", () => {
     const html = await renderRoute(() => import("./page"));
 
     expect(html).toMatch(
-      /Sources[\s\S]*>0<[\s\S]*Total Sources[\s\S]*Notes[\s\S]*>0<[\s\S]*Note Sources[\s\S]*Unsorted[\s\S]*>0<[\s\S]*Not in a Collection/,
+      />0<[\s\S]*Sources[\s\S]*Total Sources[\s\S]*>0<[\s\S]*Collections[\s\S]*>0<[\s\S]*Notes[\s\S]*Note Sources[\s\S]*>0<[\s\S]*Unsorted[\s\S]*Not in a Collection/,
     );
   });
 
@@ -432,10 +456,8 @@ describe("Knowledge workspace routes", () => {
     expect(html).toContain("Add source");
     expect(html).toContain('role="tablist"');
     expect(html).toContain("Write a note");
-    expect(html).toContain("Recently added");
-    expect(html).toContain("Retrieval notes");
-    expect(html).toContain("Design system article");
-    expect(html).toContain("Project brief");
+    expect(html).not.toContain("Recently added");
+    expect(html).not.toContain("Retrieval notes");
     expect(html).not.toContain("Save changes");
     expect(html).not.toContain("Upload File");
     expect(html).not.toContain("Choose a method to add new content.");
@@ -454,8 +476,8 @@ describe("Knowledge workspace routes", () => {
   it("renders the sources library as a table without source settings, covers AC-6", async () => {
     const html = await renderRoute(() => import("./sources/page"));
 
-    expect(html).toContain("Add Source");
-    expect(html).toContain("Filter sources");
+    expect(html).toContain("Add source");
+    expect(html).toContain("Search sources by title");
     expect(html).toContain("Any status");
     expect(html).toContain("Status");
     expect(html).not.toContain("Any type");
@@ -464,7 +486,7 @@ describe("Knowledge workspace routes", () => {
     expect(html).toContain("Collection");
     expect(html).toContain("Research");
     expect(html).toContain("Select visible sources");
-    expect(html).toContain("Delete Selected");
+    expect(html).toContain("Delete selected");
     expect(html).toContain("Open actions for Retrieval notes");
     expect(html).not.toContain("Source Settings");
     expect(html).not.toContain("Permanently Delete");
@@ -561,11 +583,11 @@ describe("Knowledge workspace routes", () => {
     );
     const searchHtml = await renderRoute(() => import("./search/page"));
 
-    expect(collectionsHtml).toContain("New Collection");
+    expect(collectionsHtml).toContain("New collection");
     expect(collectionsHtml).toContain(
       "Organize saved sources, curate groups, and open focused collection views.",
     );
-    expect(collectionsHtml).toContain("Delete Selected");
+    expect(collectionsHtml).toContain("Delete selected");
     expect(collectionsHtml).toContain("Any count");
     expect(collectionsHtml).not.toContain("Any image");
     expect(collectionsHtml).toContain('href="/collections/collection-1"');
@@ -583,12 +605,11 @@ describe("Knowledge workspace routes", () => {
   it("renders the collections filter panel in the sources page style", async () => {
     const html = await renderRoute(() => import("./collections/page"));
 
-    expect(html).toContain("Filter collections");
-    expect(html).toContain("No filters active");
+    expect(html).toContain("Search collections by name");
     expect(html).toContain('name="q"');
-    expect(html).toContain("More filters");
-    expect(html).toContain("Apply filters");
-    expect(html).toContain("Clear filters");
+    expect(html).toContain("Filters");
+    expect(html).toContain("Apply");
+    expect(html).toContain("Clear");
     expect(html).toContain('href="/collections"');
   });
 
@@ -619,8 +640,8 @@ describe("Knowledge workspace routes", () => {
     expect(html).toContain('name="from"');
     expect(html).toContain('name="to"');
     expect(html).toContain('type="date"');
-    expect(html).toContain("4 active filters");
-    expect(html).toContain("3 active");
+    expect(html).toContain("Clear<!-- --> (4)");
+    expect(html).toContain(">3<");
   });
 
   it("passes submitted source filters to the source repository", async () => {
@@ -815,8 +836,9 @@ describe("Knowledge workspace routes", () => {
     expect(html).toContain("Sources in this collection");
     expect(html).toContain("Manage sources");
     expect(html).toContain("Add sources");
-    expect(html).toContain("Remove sources");
-    expect(html).toContain("Sources to remove");
+    expect(html).toContain("Select attached sources to remove");
+    expect(html).not.toContain("Sources to remove");
+    expect(html).toContain('name="sourceIds"');
     expect(html).toContain("Retrieval notes");
   });
 

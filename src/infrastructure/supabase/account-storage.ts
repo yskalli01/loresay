@@ -59,11 +59,13 @@ export async function uploadAvatar(input: {
 
   const supabase = createSupabaseAdminClient();
   const body = new Uint8Array(await input.file.arrayBuffer());
-  const { error } = await supabase.storage.from(avatarBucket).upload(path, body, {
-    cacheControl: "3600",
-    contentType: input.file.type,
-    upsert: true,
-  });
+  const { error } = await supabase.storage
+    .from(avatarBucket)
+    .upload(path, body, {
+      cacheControl: "3600",
+      contentType: input.file.type,
+      upsert: true,
+    });
 
   if (error) {
     throw new Error(error.message);

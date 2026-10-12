@@ -13,21 +13,21 @@ export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 const variantClasses: Record<ButtonVariant, string> = {
   danger:
-    "bg-error text-on-error shadow-control hover:bg-error-strong active:bg-error-strong disabled:bg-error-soft disabled:text-error/50",
+    "rounded-full bg-error text-on-error shadow-control hover:bg-error-strong active:bg-error-strong disabled:bg-error-soft disabled:text-error/50",
   ghost:
-    "bg-transparent text-body hover:bg-surface-subtle hover:text-ink active:bg-accent-tint disabled:text-muted",
+    "rounded-md bg-transparent text-body hover:bg-surface-subtle hover:text-ink active:bg-accent-tint disabled:text-muted",
   primary:
-    "bg-accent text-on-accent shadow-control hover:bg-accent-strong active:bg-accent-strong disabled:bg-accent-soft disabled:text-white/80",
+    "rounded-full bg-accent text-on-accent shadow-control hover:bg-accent-strong active:bg-accent-strong disabled:bg-accent-soft disabled:text-on-accent/70",
   secondary:
-    "border border-border-subtle bg-surface-raised text-ink shadow-control hover:border-border hover:bg-surface-subtle active:bg-accent-tint disabled:bg-surface-subtle disabled:text-muted",
+    "rounded-md border border-border-subtle bg-surface-raised text-ink shadow-control hover:border-border hover:bg-surface-subtle active:bg-accent-tint disabled:bg-surface-subtle disabled:text-muted",
   tertiary:
-    "bg-transparent text-accent hover:bg-accent-tint active:bg-accent-soft disabled:text-accent-light",
+    "rounded-full bg-transparent text-accent hover:bg-accent-tint active:bg-accent-soft disabled:text-accent-light",
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
   icon: "h-11 w-11 p-0",
-  md: "h-11 px-4 text-sm",
-  sm: "h-9 px-3 text-sm",
+  md: "h-11 px-4 text-sm sm:h-10",
+  sm: "h-10 px-3 text-sm",
 };
 
 export function Button({
@@ -42,7 +42,7 @@ export function Button({
   return (
     <button
       className={cn(
-        "inline-flex shrink-0 items-center justify-center gap-2 rounded-md font-semibold transition disabled:cursor-not-allowed disabled:opacity-80",
+        "inline-flex shrink-0 items-center justify-center gap-2 font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 active:scale-[0.98] disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-80",
         sizeClasses[size],
         variantClasses[variant],
         className,

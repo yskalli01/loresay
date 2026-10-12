@@ -34,8 +34,6 @@ const expectedTables = [
   "ingestion_jobs",
   "collections",
   "collection_sources",
-  "tags",
-  "source_tags",
   "chat_threads",
   "chat_messages",
   "retrieval_runs",
@@ -44,7 +42,7 @@ const expectedTables = [
 ];
 
 const expectedColumns = {
-  collections: ["image_url"],
+  collections: ["description", "image_url"],
 };
 
 if (!process.env.DATABASE_URL) {

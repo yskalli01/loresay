@@ -75,102 +75,85 @@ export function SourceFilterBar({
 
   return (
     <form
-      className="rounded-lg border border-border-subtle bg-surface shadow-card"
+      className="rounded-lg border border-border-subtle bg-surface p-3 shadow-card"
       method="get"
     >
-      <div className="border-b border-border-subtle px-5 py-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h3 className="text-base font-semibold text-ink">Filter sources</h3>
-            <p className="mt-1 text-sm leading-6 text-body">
-              Search by title, then open more filters only when needed.
-            </p>
-          </div>
-          <p className="rounded-full border border-border-subtle bg-surface-subtle px-3 py-1 text-xs font-semibold text-body">
-            {count === 0
-              ? "No filters active"
-              : `${count} active filter${count === 1 ? "" : "s"}`}
-          </p>
-        </div>
-      </div>
+      <div className="grid gap-2 lg:grid-cols-[minmax(16rem,1fr)_auto_auto_auto] lg:items-start">
+        <label className="relative">
+          <span className="sr-only">Search by title</span>
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+            aria-hidden="true"
+          />
+          <input
+            className="h-11 w-full rounded-sm border border-border-subtle bg-surface-raised pl-9 pr-3 text-sm text-ink shadow-control transition placeholder:text-muted hover:border-border focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 sm:h-10"
+            defaultValue={filters.query}
+            name="q"
+            placeholder="Search sources by title"
+          />
+        </label>
 
-      <div className="space-y-5 p-5">
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)] lg:items-start">
-          <label className="space-y-2">
-            <span className="text-sm font-medium text-ink">
-              Search by title
+        <details
+          className="group relative rounded-md border border-border-subtle bg-surface-raised"
+          open={advancedFilterCount > 0}
+        >
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 text-sm font-semibold text-ink marker:hidden sm:min-h-10 [&::-webkit-details-marker]:hidden">
+            <span className="inline-flex items-center gap-2">
+              <SlidersHorizontal
+                className="h-4 w-4 text-muted"
+                aria-hidden="true"
+              />
+              Filters
             </span>
-            <input
-              className="h-12 w-full rounded-md border border-border-subtle bg-surface-raised px-3 text-base text-ink shadow-control transition placeholder:text-muted hover:border-border focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
-              defaultValue={filters.query}
-              name="q"
-              placeholder="Example: project brief, design notes, API docs"
+            <span className="inline-flex items-center gap-2 text-xs font-semibold text-muted">
+              {advancedFilterCount === 0 ? "" : advancedFilterCount}
+              <ChevronDown
+                className="h-4 w-4 transition group-open:rotate-180"
+                aria-hidden="true"
+              />
+            </span>
+          </summary>
+          <fieldset className="grid gap-3 border-t border-border-subtle p-3 sm:grid-cols-2 lg:absolute lg:right-0 lg:top-[calc(100%+0.5rem)] lg:z-30 lg:w-[30rem] lg:rounded-lg lg:border lg:bg-surface lg:shadow-panel">
+            <legend className="sr-only">More source filters</legend>
+            <FilterSelect label="Status" name="status" value={filters.status}>
+              <option value="">Any status</option>
+              <option value="ready">Ready</option>
+              <option value="processing">Processing</option>
+              <option value="failed">Failed</option>
+              <option value="draft">Draft</option>
+            </FilterSelect>
+            <FilterSelect
+              label="Collection"
+              name="collection"
+              value={filters.collectionId}
+            >
+              <option value="">Any collection</option>
+              {collections.map((collection) => (
+                <option
+                  key={collection.collection_id}
+                  value={collection.collection_id}
+                >
+                  {collection.name}
+                </option>
+              ))}
+            </FilterSelect>
+            <FilterDate
+              label="Added from"
+              name="from"
+              value={filters.createdFrom}
             />
-          </label>
-
-          <details
-            className="group rounded-md border border-border-subtle bg-surface-raised lg:mt-7"
-            open={advancedFilterCount > 0}
-          >
-            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 text-sm font-semibold text-ink marker:hidden [&::-webkit-details-marker]:hidden">
-              <span className="inline-flex items-center gap-2">
-                <SlidersHorizontal
-                  className="h-4 w-4 text-muted"
-                  aria-hidden="true"
-                />
-                More filters
-              </span>
-              <span className="inline-flex items-center gap-2 text-xs font-semibold text-muted">
-                {advancedFilterCount === 0
-                  ? "Optional"
-                  : `${advancedFilterCount} active`}
-                <ChevronDown
-                  className="h-4 w-4 transition group-open:rotate-180"
-                  aria-hidden="true"
-                />
-              </span>
-            </summary>
-            <fieldset className="grid gap-3 border-t border-border-subtle p-3 md:grid-cols-2">
-              <legend className="sr-only">More source filters</legend>
-              <FilterSelect label="Status" name="status" value={filters.status}>
-                <option value="">Any status</option>
-                <option value="ready">Ready</option>
-                <option value="processing">Processing</option>
-                <option value="failed">Failed</option>
-                <option value="draft">Draft</option>
-              </FilterSelect>
-              <FilterSelect
-                label="Collection"
-                name="collection"
-                value={filters.collectionId}
-              >
-                <option value="">Any collection</option>
-                {collections.map((collection) => (
-                  <option
-                    key={collection.collection_id}
-                    value={collection.collection_id}
-                  >
-                    {collection.name}
-                  </option>
-                ))}
-              </FilterSelect>
-              <FilterDate label="Added from" name="from" value={filters.createdFrom} />
-              <FilterDate label="Added to" name="to" value={filters.createdTo} />
-            </fieldset>
-          </details>
-        </div>
-
-        <div className="flex flex-col gap-3 border-t border-border-subtle pt-5 sm:flex-row sm:items-center sm:justify-end">
-          <Link
-            className="inline-flex h-11 items-center justify-center rounded-md px-3 text-sm font-semibold text-body transition hover:bg-surface-subtle"
-            href={clearHref}
-          >
-            Clear filters
-          </Link>
-          <Button icon={<Search className="h-4 w-4" />} type="submit">
-            Apply filters
-          </Button>
-        </div>
+            <FilterDate label="Added to" name="to" value={filters.createdTo} />
+          </fieldset>
+        </details>
+        <Link
+          className="inline-flex h-11 items-center justify-center rounded-md px-3 text-sm font-semibold text-body transition hover:bg-surface-subtle sm:h-10"
+          href={clearHref}
+        >
+          Clear{count > 0 ? ` (${count})` : ""}
+        </Link>
+        <Button icon={<Search className="h-4 w-4" />} type="submit">
+          Apply
+        </Button>
       </div>
     </form>
   );
@@ -187,11 +170,11 @@ function FilterDate({
 }) {
   return (
     <label className="space-y-2">
-      <span className="text-xs font-medium uppercase tracking-wide text-muted">
+      <span className="text-xs font-medium uppercase tracking-normal text-muted">
         {label}
       </span>
       <input
-        className="h-11 w-full rounded-md border border-border-subtle bg-surface-raised px-3 text-sm text-ink shadow-control transition hover:border-border focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
+        className="h-11 w-full rounded-sm border border-border-subtle bg-surface-raised px-3 text-sm text-ink shadow-control transition hover:border-border focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
         defaultValue={value ?? ""}
         name={name}
         type="date"
@@ -213,11 +196,11 @@ function FilterSelect({
 }) {
   return (
     <label className="space-y-2">
-      <span className="text-xs font-medium uppercase tracking-wide text-muted">
+      <span className="text-xs font-medium uppercase tracking-normal text-muted">
         {label}
       </span>
       <select
-        className="h-11 w-full rounded-md border border-border-subtle bg-surface-raised px-3 text-sm text-ink shadow-control transition hover:border-border focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
+        className="h-11 w-full rounded-sm border border-border-subtle bg-surface-raised px-3 text-sm text-ink shadow-control transition hover:border-border focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
         defaultValue={value ?? ""}
         name={name}
       >

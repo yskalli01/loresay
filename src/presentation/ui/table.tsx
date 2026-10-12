@@ -28,7 +28,7 @@ export function TableHeaderCell({
   return (
     <th
       className={cn(
-        "border-b border-border-subtle bg-surface-raised px-3 py-3 text-xs font-semibold uppercase text-muted",
+        "border-b border-border-subtle bg-surface-raised px-3 py-2.5 text-xs font-semibold text-muted",
         className,
       )}
       scope={scope}
@@ -44,7 +44,7 @@ export function TableCell({
   return (
     <td
       className={cn(
-        "border-b border-border-subtle px-3 py-3 text-body",
+        "border-b border-border-subtle px-3 py-2.5 text-body",
         className,
       )}
       {...props}

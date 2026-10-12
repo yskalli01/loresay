@@ -15,7 +15,7 @@ import { requireSessionUser } from "@/infrastructure/auth/session";
 import { knowledgeRepository } from "@/infrastructure/db/knowledge-repository";
 import { createAvatarSignedUrl } from "@/infrastructure/supabase/account-storage";
 import { cn } from "@/presentation/lib/utils";
-import { BrandMark, Sheet } from "@/presentation/ui";
+import { BrandLockup, Sheet } from "@/presentation/ui";
 
 import { navigationItems, type NavigationItem } from "./navigation";
 import { ThemeToggle } from "./theme-toggle";
@@ -101,9 +101,9 @@ function NavLink({
     <Link
       aria-current={isActive ? "page" : undefined}
       className={cn(
-        "group relative flex min-h-9 items-center gap-2.5 rounded-md px-3 text-xs font-medium transition",
+        "group relative flex min-h-10 items-center gap-3 rounded-md px-3 text-sm font-medium transition",
         isActive
-          ? "bg-accent-tint text-accent-strong"
+          ? "bg-surface text-accent-strong shadow-control ring-1 ring-border-subtle before:absolute before:left-0 before:top-2 before:h-6 before:w-1 before:rounded-full before:bg-accent"
           : "text-body hover:bg-surface-subtle hover:text-ink",
         compact && "justify-between text-sm",
       )}
@@ -145,7 +145,7 @@ function TopSearch() {
         aria-hidden="true"
       />
       <input
-        className="h-9 w-full max-w-[360px] rounded-md border border-border-subtle bg-surface-raised pl-8 pr-3 text-xs text-ink shadow-control transition placeholder:text-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+        className="h-9 w-full max-w-[360px] rounded-sm border border-border-subtle bg-surface pl-8 pr-3 text-xs text-ink shadow-control transition placeholder:text-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
         placeholder="Search your knowledge..."
         type="search"
       />
@@ -219,8 +219,7 @@ export async function AppShell({ activePath = "/", children }: AppShellProps) {
       <header className="sticky top-0 z-20 border-b border-border-subtle bg-surface/95 px-4 py-3 backdrop-blur md:hidden">
         <div className="flex items-center justify-between gap-3">
           <Link className="flex min-h-10 items-center gap-2 font-bold" href="/">
-            <BrandMark className="h-8 w-8 rounded-md" />
-            Knowledge Base
+            <BrandLockup className="h-9 w-36" />
           </Link>
           <div className="flex items-center gap-2">
             <HeaderActions account={account} />
@@ -239,12 +238,11 @@ export async function AppShell({ activePath = "/", children }: AppShellProps) {
         </div>
       </header>
 
-      <div className="mx-auto grid min-h-screen w-full max-w-[1440px] md:grid-cols-[176px_minmax(0,1fr)]">
-        <aside className="hidden border-r border-border-subtle bg-surface px-4 py-5 md:block">
+      <div className="mx-auto grid min-h-screen w-full max-w-[1600px] md:grid-cols-[216px_minmax(0,1fr)]">
+        <aside className="hidden border-r border-border-subtle bg-canvas px-4 py-5 md:block">
           <div className="sticky top-5 flex h-[calc(100vh-2.5rem)] flex-col">
             <Link className="flex min-h-9 items-center gap-2" href="/">
-              <BrandMark className="h-7 w-7 rounded-md" />
-              <span className="text-xs font-bold text-ink">Knowledge Base</span>
+              <BrandLockup className="h-8 w-32" />
             </Link>
             <nav aria-label="Primary navigation" className="mt-7">
               <NavigationList activePath={activePath} />
@@ -253,12 +251,15 @@ export async function AppShell({ activePath = "/", children }: AppShellProps) {
         </aside>
 
         <div className="min-w-0">
-          <header className="sticky top-0 z-10 hidden h-14 items-center gap-4 border-b border-border-subtle bg-canvas/92 px-5 backdrop-blur md:flex">
+          <header className="sticky top-0 z-10 hidden h-14 items-center gap-4 border-b border-border-subtle bg-surface/90 px-5 backdrop-blur md:flex">
             <TopSearch />
             <HeaderActions account={account} />
           </header>
-          <main className="min-w-0 p-4 sm:p-5" id="main-content">
-            {children}
+          <main
+            className="surface-enter min-w-0 p-4 sm:p-5 lg:p-6"
+            id="main-content"
+          >
+            <div className="mx-auto w-full max-w-[1360px]">{children}</div>
           </main>
         </div>
       </div>

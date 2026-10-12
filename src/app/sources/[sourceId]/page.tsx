@@ -38,7 +38,7 @@ export default async function SourceDetailPage({
 
   return (
     <AppShell activePath="/sources">
-      <div className="space-y-5">
+      <div className="space-y-4">
         <Link
           className="inline-flex min-h-10 items-center gap-2 rounded-md px-3 text-sm font-medium text-body hover:bg-surface-subtle"
           href="/sources"
@@ -47,14 +47,14 @@ export default async function SourceDetailPage({
           Back to sources
         </Link>
 
-        <section className="rounded-lg border border-border-subtle bg-surface p-5 shadow-card">
+        <section className="rounded-lg border border-border-subtle bg-surface px-4 py-3 shadow-card">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex min-w-0 gap-4">
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-accent-tint text-accent">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-accent-tint text-accent">
                 <FileText className="h-5 w-5" aria-hidden="true" />
               </span>
               <div className="min-w-0">
-                <h1 className="break-words text-xl font-bold tracking-normal text-ink">
+                <h1 className="break-words text-2xl font-bold tracking-normal text-ink">
                   {source.title}
                 </h1>
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted">
@@ -111,20 +111,23 @@ export default async function SourceDetailPage({
           </div>
         </section>
 
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-          <div className="space-y-5">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
+          <div className="space-y-4">
             <SourceDetailTabs
               activeContentText={detail.active_content_text}
               citations={citations}
             />
           </div>
 
-          <aside className="space-y-5">
+          <aside className="space-y-4">
             <Card>
-              <CardHeader>
-                <h2 className="text-base font-bold text-ink">Organization</h2>
+              <CardHeader className="px-4 py-3">
+                <h2 className="text-base font-bold text-ink">
+                  Source controls
+                </h2>
               </CardHeader>
-              <CardBody className="space-y-5">
+              <CardBody className="space-y-3 px-4 py-3">
+                <h3 className="text-sm font-semibold text-ink">Collections</h3>
                 <PillGroup
                   empty="No collections attached"
                   items={detail.collections.map(
@@ -136,13 +139,15 @@ export default async function SourceDetailPage({
                   sourceId={source.source_id}
                 />
               </CardBody>
+              <SourceSettingsPanel
+                canRetry={
+                  source.status === "failed" || source.status === "ready"
+                }
+                embedded
+                sourceId={source.source_id}
+                sourceTitle={source.title}
+              />
             </Card>
-
-            <SourceSettingsPanel
-              canRetry={source.status === "failed" || source.status === "ready"}
-              sourceId={source.source_id}
-              sourceTitle={source.title}
-            />
           </aside>
         </div>
       </div>

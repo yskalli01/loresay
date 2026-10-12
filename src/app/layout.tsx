@@ -5,8 +5,8 @@ import "@mdxeditor/editor/style.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AI Personal Knowledge Base",
-  description: "A private knowledge base with grounded AI answers.",
+  title: "Loresay",
+  description: "Private notes, grounded answers, and citations you can trace.",
 };
 
 export const themeBootstrap = `try {

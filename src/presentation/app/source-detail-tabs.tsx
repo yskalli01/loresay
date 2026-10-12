@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { type KeyboardEvent, useState } from "react";
 
 import type { SourceCitationDto } from "@/application/knowledge/repositories";
 import { formatDisplayDate } from "@/presentation/lib/format-date";
@@ -26,11 +26,24 @@ export function SourceDetailTabs({
   const activeLabel =
     tabs.find((tab) => tab.id === activeTab)?.label ?? "Content";
 
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+      return;
+    }
+
+    event.preventDefault();
+    const currentIndex = tabs.findIndex((tab) => tab.id === activeTab);
+    const offset = event.key === "ArrowLeft" ? -1 : 1;
+    const nextIndex = (currentIndex + offset + tabs.length) % tabs.length;
+    setActiveTab(tabs[nextIndex].id);
+  }
+
   return (
     <Card>
       <div
         aria-label="Source detail sections"
-        className="flex flex-wrap gap-2 border-b border-border-subtle px-5 pt-4"
+        className="flex flex-wrap gap-1 border-b border-border-subtle px-3 pt-2"
+        onKeyDown={handleKeyDown}
         role="tablist"
       >
         {tabs.map((tab) => {
@@ -49,6 +62,7 @@ export function SourceDetailTabs({
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               role="tab"
+              tabIndex={selected ? 0 : -1}
               type="button"
             >
               {tab.label}

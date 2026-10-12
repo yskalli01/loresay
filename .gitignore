@@ -42,5 +42,28 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# local verification screenshots
+# AI agent instructions and local workflow artifacts
+.agents/
+.codex/
+.claude/
+.cursor/
+.windsurf/
+.continue/
+AGENTS.md
+CLAUDE.md
+.aider*
+.github/copilot-instructions.md
+prompts/
+docs/
+design/
+design.md
+DESIGN-notion.md
+skills-lock.json
+test-preferences.json
+scripts/tmp-*.mjs
+
+# local verification output
 desktop-verify-*.png
+playwright-report/
+test-results/
+blob-report/

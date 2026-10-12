@@ -118,7 +118,8 @@ describe("account actions", () => {
   });
 
   it("updates email and password through Supabase Auth", async () => {
-    const { updateEmailAction, updatePasswordAction } = await import("./actions");
+    const { updateEmailAction, updatePasswordAction } =
+      await import("./actions");
     const emailForm = new FormData();
     emailForm.set("email", "new@example.com");
     const passwordForm = new FormData();

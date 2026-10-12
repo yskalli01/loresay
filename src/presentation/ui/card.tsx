@@ -4,9 +4,9 @@ import { cn } from "@/presentation/lib/utils";
 
 export function Card({ className, ...props }: HTMLAttributes<HTMLElement>) {
   return (
-    <section
+    <div
       className={cn(
-        "rounded-lg border border-border-subtle bg-surface shadow-card transition-shadow",
+        "rounded-lg border border-border-subtle bg-surface shadow-card transition-[border-color,box-shadow,transform] duration-200",
         className,
       )}
       {...props}
@@ -20,7 +20,7 @@ export function CardHeader({
 }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("border-b border-border-subtle px-5 py-4", className)}
+      className={cn("border-b border-border-subtle px-4 py-3", className)}
       {...props}
     />
   );
@@ -30,5 +30,5 @@ export function CardBody({
   className,
   ...props
 }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("p-5", className)} {...props} />;
+  return <div className={cn("p-4", className)} {...props} />;
 }

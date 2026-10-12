@@ -1,10 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { signInErrorMessage, signUpErrorMessage } from "./auth-errors";
-import { signInWithPassword, signUpWithPassword } from "./actions";
+import {
+  requestPasswordReset,
+  signInWithPassword,
+  signUpWithPassword,
+} from "./actions";
 
 const signInWithPasswordMock = vi.fn();
 const signUpMock = vi.fn();
+const resetPasswordForEmailMock = vi.fn();
 const { ensureProfileMock } = vi.hoisted(() => ({
   ensureProfileMock: vi.fn(),
 }));
@@ -15,11 +20,16 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
+vi.mock("next/headers", () => ({
+  headers: vi.fn(async () => new Headers({ origin: "http://localhost:3000" })),
+}));
+
 vi.mock("@/infrastructure/supabase/server", () => ({
   createSupabaseServerClient: vi.fn(async () => ({
     auth: {
       signInWithPassword: signInWithPasswordMock,
       signUp: signUpMock,
+      resetPasswordForEmail: resetPasswordForEmailMock,
     },
   })),
 }));
@@ -55,6 +65,12 @@ describe("auth action error messages", () => {
     );
     expect(signInErrorMessage({ code: "over_request_rate_limit" })).toBe(
       "Too many attempts. Wait a few minutes, then try again.",
+    );
+  });
+
+  it("does not report a network failure as invalid credentials", () => {
+    expect(signInErrorMessage({ name: "AuthRetryableFetchError" })).toBe(
+      "We could not reach the sign-in service. Check your connection and try again.",
     );
   });
 
@@ -121,5 +137,22 @@ describe("auth action error messages", () => {
       error: "Enter your name.",
     });
     expect(signUpMock).not.toHaveBeenCalled();
+  });
+
+  it("requests a password reset without revealing account existence", async () => {
+    resetPasswordForEmailMock.mockResolvedValueOnce({ error: null });
+
+    await expect(
+      requestPasswordReset({}, credentialsFormData()),
+    ).resolves.toEqual({
+      message:
+        "Check your email for a password reset link. You can set a new password from your account page.",
+    });
+    expect(resetPasswordForEmailMock).toHaveBeenCalledWith(
+      "person@example.com",
+      {
+        redirectTo: "http://localhost:3000/auth/callback?next=/account",
+      },
+    );
   });
 });

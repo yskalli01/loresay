@@ -873,7 +873,7 @@ async function fetchUrlContent(url: string, fetcher: UrlFetchGateway) {
     const response = await fetcher(url, {
       headers: {
         Accept: "text/html,text/plain;q=0.9,*/*;q=0.1",
-        "User-Agent": "AI Personal Knowledge Base/0.1",
+        "User-Agent": "Loresay/0.1",
       },
       redirect: "follow",
       signal: controller.signal,

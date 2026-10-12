@@ -1,64 +1,64 @@
-# AI Personal Knowledge Base
+# Loresay
 
-A Next.js app for saving private knowledge and asking grounded questions with citations.
+Loresay is a private AI knowledge workspace for saving notes, documents, and web sources, then asking questions and receiving grounded answers with citations.
 
-## Deadline Workflow
+## What the app does
 
-Use the fast path while building the MVP:
+- Captures notes, text documents, and web pages in one workspace.
+- Organizes saved knowledge with collections, filters, and search.
+- Generates answers grounded in the user's sources with visible citations.
+- Supports source editing, reprocessing, archiving, export, and permanent purge.
+- Keeps every workspace protected with Supabase authentication and row level security.
+
+## Screenshots
+
+| Authentication                                         | Dashboard                                             |
+| ------------------------------------------------------ | ----------------------------------------------------- |
+| ![Loresay authentication page](public/readme/auth.jpg) | ![Loresay dashboard](public/readme/dashboard.jpg)     |
+| **Sources**                                            | **Collections**                                       |
+| ![Loresay source library](public/readme/sources.jpg)   | ![Loresay collections](public/readme/collections.jpg) |
+
+## Tech stack
+
+| Area              | Technology                        |
+| ----------------- | --------------------------------- |
+| Application       | Next.js, React, TypeScript        |
+| UI                | Tailwind CSS, Lucide React        |
+| Database and auth | Supabase, PostgreSQL, Drizzle ORM |
+| AI                | Vercel AI SDK, OpenAI or Gemini   |
+| Testing           | Vitest, Playwright                |
+
+## Running locally
 
 ```bash
+git clone <your-repository-url>
+cd Loresay
 pnpm install
-pnpm run dev
-pnpm run quality:deadline
 ```
 
-Run the full gate before final delivery or merge:
+Copy `.env.example` to `.env.local`, add your Supabase credentials, and choose an AI provider. The stub provider works locally without paid API calls:
 
-```bash
-pnpm run quality
-```
-
-## Useful Commands
-
-```bash
-pnpm run dev
-pnpm run lint
-pnpm run typecheck
-pnpm run test:core
-pnpm run test
-pnpm run build
-```
-
-## Local Providers
-
-Use the stub AI provider for local verification without paid provider calls:
-
-```bash
+```env
 AI_PROVIDER=stub
 ANSWER_PROVIDER=stub
 ```
 
-Use Gemini for retrieval embeddings and answers when you only have a Gemini key:
+Start the development server:
 
 ```bash
-AI_PROVIDER=gemini
-ANSWER_PROVIDER=gemini
-GEMINI_API_KEY=...
-GEMINI_MODEL=gemini-3.8-flash
-GEMINI_EMBEDDING_MODEL=gemini-embedding-2
+pnpm run dev
 ```
 
-Use OpenAI only when checking OpenAI provider behavior or production settings:
+Open [http://localhost:3000](http://localhost:3000).
+
+## Checks
 
 ```bash
-AI_PROVIDER=openai
-OPENAI_API_KEY=...
+pnpm run quality
+pnpm run test:e2e
+pnpm run db:verify
 ```
 
-If you change embedding providers, reprocess saved sources so stored vectors match the active provider.
+## Deployment
 
-## Scope
-
-The active deadline scope lives in [docs/scope/scope.md](docs/scope/scope.md).
-The original broader plan is preserved in [docs/scope/scope-original-plan.md](docs/scope/scope-original-plan.md).
-
+The app is ready for a Node.js 24 deployment such as Vercel. Add the variables from `.env.example` to the deployment environment, connect the same Supabase project, and use `pnpm run build` as the production build command.

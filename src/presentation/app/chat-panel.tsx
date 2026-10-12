@@ -190,8 +190,8 @@ export function ChatPanel({
   }
 
   return (
-    <section className="flex min-h-[calc(100vh-9rem)] flex-col overflow-hidden rounded-lg border border-border-subtle bg-surface shadow-card">
-      <div className="border-b border-border-subtle px-5 py-4">
+    <section className="flex min-h-[calc(100vh-8rem)] flex-col overflow-hidden rounded-lg border border-border-subtle bg-surface shadow-card">
+      <div className="border-b border-border-subtle px-4 py-3">
         <h1 className="text-lg font-bold text-ink">Chat with Your Knowledge</h1>
         <p className="mt-1 text-sm text-body">
           Ask grounded questions across all saved sources, or narrow retrieval
@@ -199,9 +199,12 @@ export function ChatPanel({
         </p>
       </div>
 
-      <div className="flex-1 space-y-5 overflow-y-auto bg-surface-subtle/50 px-5 py-5">
+      <div
+        aria-live="polite"
+        className="flex-1 space-y-4 overflow-y-auto bg-surface-subtle/50 p-4"
+      >
         {messages.length === 0 ? (
-          <div className="flex min-h-64 items-center justify-center rounded-lg border border-dashed border-border-subtle bg-surface px-6 text-center">
+          <div className="flex min-h-52 items-center justify-center rounded-lg border border-dashed border-border-subtle bg-surface px-6 text-center">
             <div className="max-w-md space-y-3">
               <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-md bg-accent-tint text-accent">
                 <Bot className="h-5 w-5" aria-hidden="true" />
@@ -232,10 +235,10 @@ export function ChatPanel({
       </div>
 
       <form
-        className="border-t border-border-subtle bg-surface px-5 py-4"
+        className="border-t border-border-subtle bg-surface p-3"
         onSubmit={onSubmit}
       >
-        <div className="mb-3 grid gap-3 sm:grid-cols-2">
+        <div className="mb-2 max-w-sm">
           <FilterSelect label="Collection" name="collectionId">
             <option value="">All collections</option>
             {collections.map((collection) => (
@@ -267,7 +270,7 @@ export function ChatPanel({
           />
           <button
             aria-label={pending ? "Sending question" : "Send question"}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-accent text-on-accent shadow-control hover:bg-accent-strong disabled:bg-accent-soft"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-accent text-on-accent shadow-control hover:bg-accent-strong disabled:bg-accent-soft"
             disabled={pending}
             type="submit"
           >
@@ -293,7 +296,7 @@ function ChatBubble({ message }: { message: ChatMessage }) {
         <div className="max-w-xl rounded-lg bg-accent-soft px-4 py-3 text-sm font-medium leading-6 text-accent-strong">
           {message.content}
         </div>
-        <span className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-accent text-on-accent">
+        <span className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-on-accent">
           <User className="h-4 w-4" aria-hidden="true" />
         </span>
       </div>
@@ -327,9 +330,11 @@ function FilterSelect({
 }) {
   return (
     <label className="space-y-1">
-      <span className="text-xs font-medium uppercase text-muted">{label}</span>
+      <span className="text-xs font-medium uppercase tracking-normal text-muted">
+        {label}
+      </span>
       <select
-        className="h-10 w-full rounded-md border border-border-subtle bg-surface-raised px-3 text-sm text-ink shadow-control transition hover:border-border focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
+        className="h-10 w-full rounded-sm border border-border-subtle bg-surface-raised px-3 text-sm text-ink shadow-control transition hover:border-border focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
         name={name}
       >
         {children}
@@ -366,7 +371,7 @@ export function CitationList({ citations }: { citations: Citation[] }) {
                   {citation.source_title_snapshot}
                 </p>
                 <p className="mt-1 text-xs text-muted">
-                  [{citation.rank}] · Chunk {citation.rank}
+                  [{citation.rank}] / Chunk {citation.rank}
                 </p>
                 {citation.quote ? (
                   <p className="mt-2 text-sm leading-6 text-body">

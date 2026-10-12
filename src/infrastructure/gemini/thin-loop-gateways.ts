@@ -42,7 +42,9 @@ function buildContext(chunks: RetrievalChunkDto[]) {
 }
 
 function normalizeVector(values: number[]) {
-  const length = Math.sqrt(values.reduce((sum, value) => sum + value * value, 0));
+  const length = Math.sqrt(
+    values.reduce((sum, value) => sum + value * value, 0),
+  );
 
   if (!Number.isFinite(length) || length === 0) {
     return values;
@@ -68,7 +70,10 @@ function parseEmbedding(values: unknown) {
   return normalizeVector(embedding);
 }
 
-function embeddingRequest(input: string, taskType: "RETRIEVAL_DOCUMENT" | "RETRIEVAL_QUERY") {
+function embeddingRequest(
+  input: string,
+  taskType: "RETRIEVAL_DOCUMENT" | "RETRIEVAL_QUERY",
+) {
   const model = modelPath(serverEnv.GEMINI_EMBEDDING_MODEL);
 
   return {
@@ -81,7 +86,9 @@ function embeddingRequest(input: string, taskType: "RETRIEVAL_DOCUMENT" | "RETRI
   };
 }
 
-async function withGeminiTimeout<T>(operation: (signal: AbortSignal) => Promise<T>) {
+async function withGeminiTimeout<T>(
+  operation: (signal: AbortSignal) => Promise<T>,
+) {
   const controller = new AbortController();
   const timeout = setTimeout(
     () => controller.abort(),
@@ -101,7 +108,10 @@ async function withGeminiTimeout<T>(operation: (signal: AbortSignal) => Promise<
   }
 }
 
-async function embedGeminiContent(input: string, taskType: "RETRIEVAL_DOCUMENT" | "RETRIEVAL_QUERY") {
+async function embedGeminiContent(
+  input: string,
+  taskType: "RETRIEVAL_DOCUMENT" | "RETRIEVAL_QUERY",
+) {
   const model = modelId(serverEnv.GEMINI_EMBEDDING_MODEL);
   const url = new URL(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:embedContent`,
@@ -158,7 +168,9 @@ async function embedManyGeminiContent(input: string[]) {
   const embeddings = data.embeddings ?? [];
 
   if (embeddings.length !== input.length) {
-    throw new Error("Gemini batch embedding response count did not match input");
+    throw new Error(
+      "Gemini batch embedding response count did not match input",
+    );
   }
 
   return embeddings.map((embedding) => parseEmbedding(embedding.values));
@@ -168,7 +180,9 @@ async function throwGeminiError(response: Response, action: string) {
   let message = `Gemini ${action} failed`;
 
   try {
-    const body = (await response.clone().json()) as { error?: { message?: unknown } };
+    const body = (await response.clone().json()) as {
+      error?: { message?: unknown };
+    };
     if (typeof body.error?.message === "string") {
       message = `Gemini ${action} failed: ${body.error.message}`;
     }
@@ -314,6 +328,3 @@ export const geminiAnswerGateway: AnswerGateway = {
     }
   },
 };
-
-
-

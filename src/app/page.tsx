@@ -1,4 +1,12 @@
-import { Bot, Database, FilePlus2, Plus } from "lucide-react";
+import {
+  Bot,
+  Database,
+  FilePlus2,
+  FolderKanban,
+  Plus,
+  StickyNote,
+  Tags,
+} from "lucide-react";
 import Link from "next/link";
 
 import type { CollectionSummaryDto } from "@/application/knowledge/repositories";
@@ -9,11 +17,6 @@ import { MetricCard } from "@/presentation/app/knowledge-metrics";
 import { PageHeader } from "@/presentation/app/page-header";
 import { formatDisplayDate } from "@/presentation/lib/format-date";
 import { Badge, Card, CardBody, CardHeader } from "@/presentation/ui";
-
-const quickActions = [
-  { href: "/new-source", icon: Plus, label: "New Source" },
-  { href: "/chat", icon: Bot, label: "Start Chat" },
-];
 
 const recentActivityLimit = 5;
 const topCollectionsLimit = 5;
@@ -31,6 +34,8 @@ function bySourceCountDesc(
 export default async function Home() {
   const user = await requireSessionUser();
   const owner = { userId: user.id };
+  const profile = await knowledgeRepository.getProfile({ owner });
+  const userName = profile?.displayName || user.email?.split("@")[0] || "there";
   const dashboard = await knowledgeRepository.getDashboardSummary({ owner });
   const recentSources = dashboard.sources.slice(0, recentActivityLimit);
   const topCollections = [...dashboard.collections]
@@ -39,77 +44,77 @@ export default async function Home() {
 
   return (
     <AppShell activePath="/">
-      <div className="space-y-5">
+      <div className="space-y-4">
         <PageHeader
           badge="Dashboard"
           description="Overview of your knowledge, recent activity, and quick actions."
-          title="Good morning, Alex"
+          title={`Good morning, ${userName}`}
+          actions={
+            <>
+              <Link
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-border-subtle bg-surface px-3 text-sm font-medium text-ink shadow-control transition hover:bg-surface-subtle"
+                href="/chat"
+              >
+                <Bot className="h-4 w-4 text-accent" aria-hidden="true" />
+                Ask AI
+              </Link>
+              <Link
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-accent px-4 text-sm font-medium text-on-accent shadow-control transition hover:bg-accent-strong active:scale-[0.98]"
+                href="/new-source"
+              >
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                New source
+              </Link>
+            </>
+          }
         />
-
-        <section aria-labelledby="quick-add-title" className="space-y-3">
-          <h2 className="text-sm font-bold text-ink" id="quick-add-title">
-            Quick Add
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {quickActions.map((action) => {
-              const Icon = action.icon;
-
-              return (
-                <Link
-                  className="flex min-h-24 flex-col items-center justify-center gap-2 rounded-lg border border-border-subtle bg-surface text-sm font-semibold text-accent-strong shadow-card transition hover:-translate-y-0.5 hover:border-accent/25 hover:bg-accent-tint"
-                  href={action.href}
-                  key={action.label}
-                >
-                  <Icon className="h-5 w-5" aria-hidden="true" />
-                  {action.label}
-                </Link>
-              );
-            })}
-          </div>
-        </section>
 
         <section aria-labelledby="overview-metrics-title">
           <h2 className="sr-only" id="overview-metrics-title">
             Knowledge metrics
           </h2>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <Card className="grid grid-flow-dense divide-y divide-border-subtle overflow-hidden sm:grid-cols-2 sm:divide-x sm:divide-y-0 xl:grid-cols-4 [&>*:nth-child(3)]:sm:border-l-0 [&>*:nth-child(3)]:sm:border-t [&>*:nth-child(3)]:xl:border-l [&>*:nth-child(3)]:xl:border-t-0">
             <MetricCard
               detail="Total Sources"
+              icon={<Database className="h-4 w-4" aria-hidden="true" />}
               label="Sources"
               value={dashboard.metrics.totalSources}
             />
             <MetricCard
               detail="Collections"
+              icon={<FolderKanban className="h-4 w-4" aria-hidden="true" />}
               label="Collections"
               value={dashboard.collections.length}
             />
             <MetricCard
               detail="Note Sources"
+              icon={<StickyNote className="h-4 w-4" aria-hidden="true" />}
               label="Notes"
               value={dashboard.metrics.noteSources}
             />
             <MetricCard
               detail="Not in a Collection"
+              icon={<Tags className="h-4 w-4" aria-hidden="true" />}
               label="Unsorted"
               value={dashboard.metrics.unsortedSources}
             />
-          </div>
+          </Card>
         </section>
 
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
-          <Card>
+        <div className="grid grid-flow-dense gap-4 lg:grid-cols-12">
+          <Card className="lg:col-span-8">
             <CardHeader>
               <h2 className="text-base font-bold text-ink">Recent Activity</h2>
             </CardHeader>
-            <CardBody className="space-y-3">
+            <CardBody className="divide-y divide-border-subtle p-0">
               {recentSources.length > 0 ? (
                 recentSources.map((source) => (
                   <Link
-                    className="flex items-center gap-3 rounded-md border border-border-subtle bg-surface-raised p-3 transition hover:bg-surface-subtle"
+                    className="group flex items-center gap-3 px-4 py-3 transition hover:bg-surface-subtle"
                     href={`/sources/${source.source_id}`}
                     key={source.source_id}
                   >
-                    <span className="flex h-9 w-9 items-center justify-center rounded-md bg-accent-tint text-accent">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-md bg-accent-tint text-accent transition-transform duration-300 group-hover:scale-105">
                       <Database className="h-4 w-4" aria-hidden="true" />
                     </span>
                     <span className="min-w-0 flex-1">
@@ -137,18 +142,18 @@ export default async function Home() {
             </CardBody>
           </Card>
 
-          <Card>
+          <Card className="lg:col-span-4">
             <CardHeader>
               <h2 className="text-base font-bold text-ink">Top Collections</h2>
             </CardHeader>
-            <CardBody className="space-y-3">
+            <CardBody className="divide-y divide-border-subtle p-0">
               {topCollections.length > 0 ? (
                 topCollections.map((collection) => (
                   <div
-                    className="flex items-center gap-3 rounded-md border border-border-subtle bg-surface-raised p-3"
+                    className="flex items-center gap-3 px-4 py-3"
                     key={collection.collection_id}
                   >
-                    <span className="flex h-9 w-9 items-center justify-center rounded-md bg-accent-tint text-accent">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-md bg-accent-tint text-accent">
                       <FilePlus2 className="h-4 w-4" aria-hidden="true" />
                     </span>
                     <div className="min-w-0 flex-1">

@@ -8,6 +8,10 @@ function authErrorCode(error: AuthErrorLike | null): string | undefined {
 }
 
 export function signInErrorMessage(error: AuthErrorLike | null) {
+  if (error?.name === "AuthRetryableFetchError") {
+    return "We could not reach the sign-in service. Check your connection and try again.";
+  }
+
   switch (authErrorCode(error)) {
     case "email_not_confirmed":
       return "Confirm your email address before signing in.";

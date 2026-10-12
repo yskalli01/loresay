@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Folder, ImageIcon } from "lucide-react";
+import { ArrowLeft, Folder } from "lucide-react";
 
 import { requireSessionUser } from "@/infrastructure/auth/session";
 import { knowledgeRepository } from "@/infrastructure/db/knowledge-repository";
 import { AppShell } from "@/presentation/app/app-shell";
+import { CollectionDetailActions } from "@/presentation/app/collection-detail-actions";
 import { CollectionSourceAttachForm } from "@/presentation/app/collection-source-attach-form";
 import { SourceSummaryGrid } from "@/presentation/app/source-summary-grid";
 import { formatDisplayDate } from "@/presentation/lib/format-date";
@@ -36,7 +37,7 @@ export default async function CollectionDetailPage({
 
   return (
     <AppShell activePath="/collections">
-      <div className="space-y-5">
+      <div className="space-y-4">
         <Link
           className="inline-flex min-h-10 items-center gap-2 rounded-md text-sm font-semibold text-body transition hover:text-accent"
           href="/collections"
@@ -45,9 +46,9 @@ export default async function CollectionDetailPage({
           Collections
         </Link>
 
-        <Card>
-          <CardBody className="flex flex-col gap-5 lg:flex-row lg:items-center">
-            <span className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-accent-tint text-accent ring-1 ring-accent/15">
+        <Card className="overflow-visible">
+          <CardBody className="flex flex-col gap-4 p-4 sm:flex-row sm:items-start">
+            <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md bg-accent-tint text-accent ring-1 ring-accent/15">
               {detail.collection.image_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -60,30 +61,28 @@ export default async function CollectionDetailPage({
                   }
                 />
               ) : (
-                <Folder className="h-9 w-9" aria-hidden="true" />
+                <Folder className="h-6 w-6" aria-hidden="true" />
               )}
             </span>
             <div className="min-w-0 flex-1">
-              <Badge tone="collection">Collection</Badge>
-              <h1 className="mt-3 break-words text-2xl font-bold tracking-normal text-ink">
-                {detail.collection.name}
-              </h1>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Badge tone="accent">
-                  {detail.collection.source_count} sources
-                </Badge>
-                {detail.collection.image_url ? (
-                  <Badge tone="neutral">
-                    <ImageIcon className="h-3 w-3" aria-hidden="true" />
-                    Image saved
-                  </Badge>
-                ) : null}
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <Badge tone="collection">Collection</Badge>
+                  <h1 className="mt-2 break-words text-2xl font-bold tracking-normal text-ink">
+                    {detail.collection.name}
+                  </h1>
+                  <p className="mt-1 text-xs font-medium text-muted">
+                    {detail.collection.source_count} sources · Updated{" "}
+                    {formatDisplayDate(detail.collection.updated_at)}
+                  </p>
+                </div>
+                <CollectionDetailActions
+                  collection={detail.collection}
+                  sources={allSources.items}
+                />
               </div>
-              <p className="mt-3 text-sm text-body">
-                Updated {formatDisplayDate(detail.collection.updated_at)}.
-              </p>
               {detail.collection.description ? (
-                <p className="mt-3 max-w-3xl text-sm leading-6 text-body">
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-body">
                   {detail.collection.description}
                 </p>
               ) : null}

@@ -190,5 +190,3 @@ export async function deleteAccountAction(
 
   redirect("/auth");
 }
-
-

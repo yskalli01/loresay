@@ -16,10 +16,12 @@ const initialState: NoteActionState = {};
 
 export function SourceSettingsPanel({
   canRetry,
+  embedded = false,
   sourceId,
   sourceTitle,
 }: {
   canRetry: boolean;
+  embedded?: boolean;
   sourceId: string;
   sourceTitle: string;
 }) {
@@ -36,17 +38,17 @@ export function SourceSettingsPanel({
     initialState,
   );
 
-  return (
-    <Card>
-      <CardBody className="space-y-4">
-        <div>
-          <h2 className="text-base font-bold text-ink">Source Settings</h2>
-          <p className="mt-1 text-xs text-body">
-            Archive, retry failed processing, export, or permanently purge this
-            source.
-          </p>
-        </div>
+  const content = (
+    <>
+      <div className="border-b border-border-subtle px-4 py-3">
+        <h2 className="text-base font-bold text-ink">Source Settings</h2>
+        <p className="mt-0.5 text-xs leading-5 text-body">
+          Archive, retry failed processing, export, or permanently purge this
+          source.
+        </p>
+      </div>
 
+      <div className="divide-y divide-border-subtle px-4">
         <form action={retryAction}>
           <input name="sourceId" type="hidden" value={sourceId} />
           <LifecycleRow
@@ -91,7 +93,7 @@ export function SourceSettingsPanel({
           title="Export"
         >
           <a
-            className="inline-flex h-9 items-center justify-center rounded-md border border-border-subtle bg-surface-raised px-3 text-xs font-semibold text-ink hover:bg-surface-subtle"
+            className="inline-flex h-10 items-center justify-center rounded-md border border-border-subtle bg-surface-raised px-3 text-sm font-semibold text-ink shadow-control hover:border-border hover:bg-surface-subtle"
             download
             href="/api/export"
           >
@@ -99,25 +101,27 @@ export function SourceSettingsPanel({
           </a>
         </LifecycleRow>
 
-        <form
-          action={purgeAction}
-          className="space-y-3 rounded-lg border border-error/15 bg-error-tint p-3"
-        >
-          <input name="sourceId" type="hidden" value={sourceId} />
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <span className="flex h-9 w-9 items-center justify-center rounded-md bg-error-soft text-error-strong">
-                <Trash2 className="h-4 w-4" aria-hidden="true" />
-              </span>
-              <div>
-                <h3 className="text-sm font-bold text-error-strong">
-                  Permanently Delete
-                </h3>
-                <p className="text-xs text-body">
-                  Permanently delete this source and its content.
-                </p>
-              </div>
-            </div>
+        <details className="group py-3">
+          <summary className="flex cursor-pointer list-none items-center gap-2 text-xs font-semibold text-error marker:hidden [&::-webkit-details-marker]:hidden">
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
+            Permanently Delete Source
+          </summary>
+          <form
+            action={purgeAction}
+            className="mt-3 space-y-3 rounded-md bg-error-tint p-3"
+          >
+            <input name="sourceId" type="hidden" value={sourceId} />
+            <p className="text-xs leading-5 text-body">
+              Type the source title to permanently delete it and its content.
+            </p>
+            <Label htmlFor="source-delete-confirmation">Source title</Label>
+            <Input
+              autoComplete="off"
+              id="source-delete-confirmation"
+              name="confirmation"
+              placeholder={sourceTitle}
+              required
+            />
             <Button
               disabled={purgePending}
               icon={<Trash2 className="h-4 w-4" />}
@@ -125,22 +129,24 @@ export function SourceSettingsPanel({
               type="submit"
               variant="danger"
             >
-              Delete
+              {purgePending ? "Deleting" : "Delete permanently"}
             </Button>
-          </div>
-          <Label htmlFor="source-delete-confirmation">
-            Type source title to delete
-          </Label>
-          <Input
-            autoComplete="off"
-            id="source-delete-confirmation"
-            name="confirmation"
-            placeholder={sourceTitle}
-            required
-          />
-          <ActionMessage state={purgeState} />
-        </form>
-      </CardBody>
+            <ActionMessage state={purgeState} />
+          </form>
+        </details>
+      </div>
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <section className="border-t border-border-subtle">{content}</section>
+    );
+  }
+
+  return (
+    <Card>
+      <CardBody className="p-0">{content}</CardBody>
     </Card>
   );
 }
@@ -241,9 +247,9 @@ function LifecycleRow({
   title: string;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border border-border-subtle bg-surface-raised p-3">
-      <div className="flex items-center gap-3">
-        <span className="flex h-9 w-9 items-center justify-center rounded-md bg-accent-tint text-accent">
+    <div className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent-tint text-accent">
           {icon}
         </span>
         <div>
@@ -251,7 +257,7 @@ function LifecycleRow({
           <p className="text-xs text-body">{description}</p>
         </div>
       </div>
-      <div className="shrink-0">{children}</div>
+      <div className="shrink-0 self-end sm:self-auto">{children}</div>
     </div>
   );
 }

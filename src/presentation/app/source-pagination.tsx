@@ -66,7 +66,7 @@ export function SourcePagination({
 
   const linkClass = (active: boolean) =>
     active
-      ? "inline-flex h-9 min-w-9 items-center justify-center rounded-md bg-accent px-3 text-xs font-semibold text-on-accent shadow-control"
+      ? "inline-flex h-9 min-w-9 items-center justify-center rounded-full bg-accent px-3 text-xs font-semibold text-on-accent shadow-control"
       : "inline-flex h-9 min-w-9 items-center justify-center rounded-md border border-border-subtle bg-surface-raised px-3 text-xs font-semibold text-body hover:bg-surface-subtle";
 
   return (

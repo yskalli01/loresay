@@ -11,7 +11,7 @@ export function Input({ className, invalid = false, ...props }: InputProps) {
     <input
       aria-invalid={invalid || undefined}
       className={cn(
-        "h-11 w-full rounded-md border bg-surface-raised px-3 text-sm text-ink shadow-control transition placeholder:text-muted hover:border-border focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:cursor-not-allowed disabled:bg-surface-subtle disabled:text-muted",
+        "h-11 w-full rounded-sm border bg-surface-raised px-3 text-sm text-ink shadow-control transition placeholder:text-muted hover:border-border focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:cursor-not-allowed disabled:bg-surface-subtle disabled:text-muted sm:h-10",
         invalid
           ? "border-error focus:border-error focus:ring-error/20"
           : "border-border-subtle",
@@ -35,7 +35,7 @@ export function Textarea({
     <textarea
       aria-invalid={invalid || undefined}
       className={cn(
-        "min-h-28 w-full resize-y rounded-md border bg-surface-raised px-3 py-2 text-sm leading-6 text-ink shadow-control transition placeholder:text-muted hover:border-border focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:cursor-not-allowed disabled:bg-surface-subtle disabled:text-muted",
+        "min-h-28 w-full resize-y rounded-sm border bg-surface-raised px-3 py-2 text-sm leading-6 text-ink shadow-control transition placeholder:text-muted hover:border-border focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:cursor-not-allowed disabled:bg-surface-subtle disabled:text-muted",
         invalid
           ? "border-error focus:border-error focus:ring-error/20"
           : "border-border-subtle",

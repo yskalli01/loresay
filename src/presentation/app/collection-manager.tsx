@@ -1,6 +1,13 @@
 "use client";
 
-import { useActionState, useMemo, useState, type ReactNode } from "react";
+import {
+  useActionState,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   CheckSquare,
   ChevronDown,
@@ -8,11 +15,11 @@ import {
   ChevronRight,
   Edit3,
   Folder,
+  MoreHorizontal,
   Plus,
   Search,
   SlidersHorizontal,
   Trash2,
-  Upload,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -30,9 +37,17 @@ import type {
 } from "@/application/knowledge/repositories";
 import type { SourceSummaryDto } from "@/domain/knowledge";
 import { formatDisplayDate } from "@/presentation/lib/format-date";
-import { Badge, Button, Card, CardBody, Input, Label } from "@/presentation/ui";
+import {
+  Button,
+  Card,
+  CardBody,
+  FileUploadField,
+  Input,
+  Label,
+} from "@/presentation/ui";
 
 import { CollectionSourcePicker } from "./collection-source-picker";
+import { PageHeader } from "./page-header";
 
 const initialState: NoteActionState = {};
 
@@ -102,29 +117,24 @@ export function CollectionManager({
   }
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-normal text-ink">
-            Collections
-          </h1>
-          <p className="mt-1 text-sm text-body">
-            Organize saved sources, curate groups, and open focused collection
-            views.
-          </p>
-        </div>
-        <Button
-          icon={<Plus className="h-4 w-4" />}
-          onClick={() => setModal({ type: "create" })}
-        >
-          New Collection
-        </Button>
-      </div>
+    <div className="space-y-4">
+      <PageHeader
+        description="Organize saved sources, curate groups, and open focused collection views."
+        title="Collections"
+        actions={
+          <Button
+            icon={<Plus className="h-4 w-4" />}
+            onClick={() => setModal({ type: "create" })}
+          >
+            New collection
+          </Button>
+        }
+      />
 
       <CollectionFilters filters={filters} />
 
       <form action={bulkAction} className="space-y-3">
-        <div className="flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface p-4 shadow-card sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 rounded-lg border border-border-subtle bg-surface px-3 py-2 shadow-card sm:flex-row sm:items-center sm:justify-between">
           <label className="inline-flex items-center gap-3 text-sm font-semibold text-ink">
             <input
               checked={allVisibleSelected}
@@ -134,7 +144,7 @@ export function CollectionManager({
             />
             Select visible collections
           </label>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm text-body">
               {selectedCount === 0
                 ? "No collections selected"
@@ -154,7 +164,7 @@ export function CollectionManager({
               type="submit"
               variant="danger"
             >
-              {bulkPending ? "Deleting..." : "Delete Selected"}
+              {bulkPending ? "Deleting..." : "Delete selected"}
             </Button>
           </div>
         </div>
@@ -174,7 +184,7 @@ export function CollectionManager({
         <>
           <section
             aria-label="Collections"
-            className="grid gap-5 md:grid-cols-2 xl:grid-cols-3"
+            className="grid grid-flow-dense gap-3 md:grid-cols-2 xl:grid-cols-3"
           >
             {pageCollections.map((collection) => (
               <CollectionCard
@@ -191,7 +201,7 @@ export function CollectionManager({
             ))}
           </section>
 
-          <div className="flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface-subtle px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-2 rounded-md bg-surface-subtle px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-body">
               Showing {pageStart + 1}-
               {Math.min(pageStart + collectionsPerPage, collections.length)} of{" "}
@@ -255,113 +265,88 @@ function CollectionFilters({ filters }: { filters: CollectionListFilters }) {
 
   return (
     <form
-      className="rounded-lg border border-border-subtle bg-surface shadow-card"
+      className="rounded-lg border border-border-subtle bg-surface p-3 shadow-card"
       method="get"
     >
-      <div className="border-b border-border-subtle px-5 py-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h3 className="text-base font-semibold text-ink">
-              Filter collections
-            </h3>
-            <p className="mt-1 text-sm leading-6 text-body">
-              Search by name, then open more filters only when needed.
-            </p>
-          </div>
-          <p className="rounded-full border border-border-subtle bg-surface-subtle px-3 py-1 text-xs font-semibold text-body">
-            {activeFilterCount === 0
-              ? "No filters active"
-              : `${activeFilterCount} active filter${activeFilterCount === 1 ? "" : "s"}`}
-          </p>
-        </div>
-      </div>
+      <div className="grid gap-2 lg:grid-cols-[minmax(16rem,1fr)_auto_auto_auto] lg:items-start">
+        <label className="relative">
+          <span className="sr-only">Search by name</span>
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+            aria-hidden="true"
+          />
+          <input
+            className="h-11 w-full rounded-sm border border-border-subtle bg-surface-raised pl-9 pr-3 text-sm text-ink shadow-control transition placeholder:text-muted hover:border-border focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 sm:h-10"
+            defaultValue={filters.query}
+            name="q"
+            placeholder="Search collections by name"
+          />
+        </label>
 
-      <div className="space-y-5 p-5">
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)] lg:items-start">
-          <label className="space-y-2">
-            <span className="text-sm font-medium text-ink">Search by name</span>
-            <input
-              className="h-12 w-full rounded-md border border-border-subtle bg-surface-raised px-3 text-base text-ink shadow-control transition placeholder:text-muted hover:border-border focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
-              defaultValue={filters.query}
-              name="q"
-              placeholder="Example: research, work, reading list"
+        <details
+          className="group relative rounded-md border border-border-subtle bg-surface-raised"
+          open={advancedFilterCount > 0}
+        >
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 text-sm font-semibold text-ink marker:hidden [&::-webkit-details-marker]:hidden">
+            <span className="inline-flex items-center gap-2">
+              <SlidersHorizontal
+                className="h-4 w-4 text-muted"
+                aria-hidden="true"
+              />
+              Filters
+            </span>
+            <span className="inline-flex items-center gap-2 text-xs font-semibold text-muted">
+              {advancedFilterCount === 0 ? "" : advancedFilterCount}
+              <ChevronDown
+                className="h-4 w-4 transition group-open:rotate-180"
+                aria-hidden="true"
+              />
+            </span>
+          </summary>
+          <fieldset className="grid gap-3 border-t border-border-subtle p-3 sm:grid-cols-2 lg:absolute lg:right-0 lg:top-[calc(100%+0.5rem)] lg:z-30 lg:w-[30rem] lg:rounded-lg lg:border lg:bg-surface lg:shadow-panel">
+            <legend className="sr-only">More collection filters</legend>
+            <FilterSelect
+              label="Sources"
+              name="sources"
+              value={
+                filters.hasSources === true
+                  ? "with"
+                  : filters.hasSources === false
+                    ? "empty"
+                    : ""
+              }
+            >
+              <option value="">Any count</option>
+              <option value="with">Has sources</option>
+              <option value="empty">Empty</option>
+            </FilterSelect>
+            <FilterSelect
+              label="Sort"
+              name="sort"
+              value={filters.sort ?? "name"}
+            >
+              <option value="name">Name</option>
+              <option value="updated">Recently updated</option>
+              <option value="newest">Newest</option>
+              <option value="source_count">Source count</option>
+            </FilterSelect>
+            <FilterDate
+              label="Added from"
+              name="from"
+              value={filters.createdFrom}
             />
-          </label>
-
-          <details
-            className="group rounded-md border border-border-subtle bg-surface-raised lg:mt-7"
-            open={advancedFilterCount > 0}
-          >
-            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 text-sm font-semibold text-ink marker:hidden [&::-webkit-details-marker]:hidden">
-              <span className="inline-flex items-center gap-2">
-                <SlidersHorizontal
-                  className="h-4 w-4 text-muted"
-                  aria-hidden="true"
-                />
-                More filters
-              </span>
-              <span className="inline-flex items-center gap-2 text-xs font-semibold text-muted">
-                {advancedFilterCount === 0
-                  ? "Optional"
-                  : `${advancedFilterCount} active`}
-                <ChevronDown
-                  className="h-4 w-4 transition group-open:rotate-180"
-                  aria-hidden="true"
-                />
-              </span>
-            </summary>
-            <fieldset className="grid gap-3 border-t border-border-subtle p-3 md:grid-cols-2">
-              <legend className="sr-only">More collection filters</legend>
-              <FilterSelect
-                label="Sources"
-                name="sources"
-                value={
-                  filters.hasSources === true
-                    ? "with"
-                    : filters.hasSources === false
-                      ? "empty"
-                      : ""
-                }
-              >
-                <option value="">Any count</option>
-                <option value="with">Has sources</option>
-                <option value="empty">Empty</option>
-              </FilterSelect>
-              <FilterSelect
-                label="Sort"
-                name="sort"
-                value={filters.sort ?? "name"}
-              >
-                <option value="name">Name</option>
-                <option value="updated">Recently updated</option>
-                <option value="newest">Newest</option>
-                <option value="source_count">Source count</option>
-              </FilterSelect>
-              <FilterDate
-                label="Added from"
-                name="from"
-                value={filters.createdFrom}
-              />
-              <FilterDate
-                label="Added to"
-                name="to"
-                value={filters.createdTo}
-              />
-            </fieldset>
-          </details>
-        </div>
-
-        <div className="flex flex-col gap-3 border-t border-border-subtle pt-5 sm:flex-row sm:items-center sm:justify-end">
-          <Link
-            className="inline-flex h-11 items-center justify-center rounded-md px-3 text-sm font-semibold text-body transition hover:bg-surface-subtle"
-            href="/collections"
-          >
-            Clear filters
-          </Link>
-          <Button icon={<Search className="h-4 w-4" />} type="submit">
-            Apply filters
-          </Button>
-        </div>
+            <FilterDate label="Added to" name="to" value={filters.createdTo} />
+          </fieldset>
+        </details>
+        <Link
+          className="inline-flex h-11 items-center justify-center rounded-md px-3 text-sm font-semibold text-body transition hover:bg-surface-subtle sm:h-10"
+          href="/collections"
+        >
+          Clear{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+        </Link>
+        <Button icon={<Search className="h-4 w-4" />} type="submit">
+          Apply
+        </Button>
       </div>
     </form>
   );
@@ -384,10 +369,14 @@ function CollectionCard({
   );
 
   return (
-    <Card className={selected ? "ring-2 ring-accent/50" : undefined}>
-      <CardBody className="space-y-4">
-        <div className="flex items-start justify-between gap-3">
-          <label className="inline-flex items-center gap-2 text-sm font-medium text-body">
+    <Card
+      className={
+        selected ? "border-accent/40 ring-2 ring-accent/30" : undefined
+      }
+    >
+      <CardBody className="p-0">
+        <div className="flex items-start gap-3 p-3.5">
+          <label className="mt-1 inline-flex items-center text-sm font-medium text-body">
             <input
               checked={selected}
               className="h-4 w-4 rounded border-border text-accent focus:ring-accent"
@@ -396,7 +385,7 @@ function CollectionCard({
             />
             <span className="sr-only">Select {collection.name}</span>
           </label>
-          <span className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-md bg-accent-tint text-accent ring-1 ring-accent/15">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-accent-tint text-accent ring-1 ring-accent/15">
             {collection.image_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -408,68 +397,79 @@ function CollectionCard({
               <Folder className="h-5 w-5" aria-hidden="true" />
             )}
           </span>
-          <div className="flex gap-1">
-            <button
-              aria-label={`Edit ${collection.name}`}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted hover:bg-surface-subtle hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-              onClick={onEdit}
-              type="button"
-            >
-              <Edit3 className="h-4 w-4" aria-hidden="true" />
-            </button>
-            <form action={deleteAction}>
-              <input
-                name="collectionId"
-                type="hidden"
-                value={collection.collection_id}
-              />
-              <button
-                aria-label={`Delete ${collection.name}`}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-md text-error hover:bg-error-tint focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-error"
-                disabled={deletePending}
-                type="submit"
-              >
-                <Trash2 className="h-4 w-4" aria-hidden="true" />
-              </button>
-            </form>
-          </div>
-        </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start gap-2">
+              <div className="min-w-0 flex-1">
+                <Link
+                  className="line-clamp-1 text-base font-bold text-ink hover:text-accent"
+                  href={`/collections/${collection.collection_id}`}
+                >
+                  {collection.name}
+                </Link>
+                <p className="mt-1 text-xs font-medium text-muted">
+                  {collection.source_count}{" "}
+                  {collection.source_count === 1 ? "source" : "sources"}
+                  <span aria-hidden="true"> · </span>
+                  {formatDisplayDate(collection.created_at)}
+                </p>
+              </div>
+              <details className="group relative shrink-0">
+                <summary
+                  aria-label={`Actions for ${collection.name}`}
+                  className="flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-md text-muted transition hover:bg-surface-subtle hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent [&::-webkit-details-marker]:hidden"
+                >
+                  <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+                </summary>
+                <div className="absolute right-0 top-10 z-20 w-40 rounded-md border border-border-subtle bg-surface p-1.5 shadow-panel">
+                  <button
+                    className="flex h-9 w-full items-center gap-2 rounded-md px-2.5 text-sm font-medium text-ink hover:bg-surface-subtle"
+                    onClick={(event) => {
+                      event.currentTarget
+                        .closest("details")
+                        ?.removeAttribute("open");
+                      onEdit();
+                    }}
+                    type="button"
+                  >
+                    <Edit3 className="h-4 w-4 text-muted" aria-hidden="true" />
+                    Edit
+                  </button>
+                  <form action={deleteAction}>
+                    <input
+                      name="collectionId"
+                      type="hidden"
+                      value={collection.collection_id}
+                    />
+                    <button
+                      className="flex h-9 w-full items-center gap-2 rounded-md px-2.5 text-sm font-medium text-error hover:bg-error-tint"
+                      disabled={deletePending}
+                      type="submit"
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden="true" />
+                      {deletePending ? "Deleting" : "Delete"}
+                    </button>
+                  </form>
+                </div>
+              </details>
+            </div>
 
-        <div>
-          <Link
-            className="text-base font-bold text-ink hover:text-accent"
-            href={`/collections/${collection.collection_id}`}
-          >
-            {collection.name}
-          </Link>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <Badge tone="collection">{collection.source_count} sources</Badge>
-            {collection.image_url ? <Badge tone="accent">image</Badge> : null}
-          </div>
-          {collection.description ? (
-            <p className="mt-3 line-clamp-2 text-sm text-body">
-              {collection.description}
+            <p className="mt-2 line-clamp-2 min-h-10 text-sm leading-5 text-body">
+              {collection.description || "No description added."}
             </p>
-          ) : null}
+          </div>
         </div>
 
-        <dl className="grid gap-3 text-sm text-body sm:grid-cols-2">
-          <Info
-            label="Created"
-            value={formatDisplayDate(collection.created_at)}
-          />
-          <Info
-            label="Updated"
-            value={formatDisplayDate(collection.updated_at)}
-          />
-        </dl>
-        <ActionMessage state={deleteState} />
+        {deleteState.error || deleteState.message ? (
+          <div className="px-3.5 pb-3">
+            <ActionMessage state={deleteState} />
+          </div>
+        ) : null}
       </CardBody>
     </Card>
   );
 }
 
-function CollectionModal({
+export function CollectionModal({
   collection,
   mode,
   onClose,
@@ -480,19 +480,65 @@ function CollectionModal({
   onClose: () => void;
   sources: SourceSummaryDto[];
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
   const action =
     mode === "create" ? createCollectionAction : updateCollectionAction;
   const [state, formAction, pending] = useActionState(action, initialState);
   const title = mode === "create" ? "New Collection" : "Edit Collection";
 
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    dialog?.querySelector<HTMLElement>("input:not([type='hidden'])")?.focus();
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+
+      if (event.key !== "Tab" || !dialog) return;
+      const focusable = Array.from(
+        dialog.querySelectorAll<HTMLElement>(
+          "button:not([disabled]), input:not([disabled]):not([type='hidden']), textarea:not([disabled]), [href]",
+        ),
+      );
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (!first || !last) return;
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onClose]);
+
   return (
     <div
       aria-labelledby="collection-modal-title"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/35 p-4"
+      className="fixed inset-0 z-50 flex overflow-y-auto bg-ink/35 p-4 sm:p-6"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
       role="dialog"
     >
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-border-subtle bg-surface shadow-panel">
+      <div
+        className="my-auto max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto rounded-lg border border-border-subtle bg-surface shadow-panel sm:mx-auto sm:max-h-[calc(100dvh-3rem)]"
+        ref={dialogRef}
+      >
         <div className="flex items-start justify-between gap-4 border-b border-border-subtle px-5 py-4">
           <div>
             <h2
@@ -514,7 +560,7 @@ function CollectionModal({
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
-        <form action={formAction} className="space-y-5 p-5">
+        <form action={formAction} className="space-y-4 p-4 sm:p-5">
           {collection ? (
             <>
               <input
@@ -529,7 +575,7 @@ function CollectionModal({
               />
             </>
           ) : null}
-          <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="collection-name">Name</Label>
               <Input
@@ -541,13 +587,13 @@ function CollectionModal({
                 required
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="collection-description">
                 Description{" "}
                 <span className="font-normal text-muted">(optional)</span>
               </Label>
               <textarea
-                className="min-h-24 w-full resize-y rounded-md border border-border-subtle bg-surface-raised px-3 py-2 text-sm text-ink shadow-control transition placeholder:text-muted hover:border-border focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
+                className="min-h-24 w-full resize-y rounded-sm border border-border-subtle bg-surface-raised px-3 py-2 text-sm text-ink shadow-control transition placeholder:text-muted hover:border-border focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
                 defaultValue={collection?.description ?? ""}
                 id="collection-description"
                 maxLength={1000}
@@ -555,25 +601,19 @@ function CollectionModal({
                 placeholder="What belongs in this collection?"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="collection-image">
-                Image <span className="font-normal text-muted">(optional)</span>
-              </Label>
-              <Input
+            <div className="space-y-2 sm:col-span-2">
+              <FileUploadField
                 accept="image/jpeg,image/png,image/webp"
+                description="JPEG, PNG, or WebP up to 4 MB"
                 id="collection-image"
+                kind="image"
+                label={
+                  collection?.image_url
+                    ? "Replace collection image"
+                    : "Add a collection image"
+                }
                 name="image"
-                type="file"
               />
-              <p className="flex items-center gap-2 text-xs text-muted">
-                <Upload className="h-3.5 w-3.5" aria-hidden="true" />
-                JPEG, PNG, or WebP. Maximum 4 MB.
-              </p>
-              {collection?.image_url ? (
-                <p className="text-xs text-body">
-                  Choose a file to replace the current image.
-                </p>
-              ) : null}
             </div>
           </div>
           <CollectionSourcePicker sources={sources} />
@@ -645,11 +685,11 @@ function FilterDate({
 }) {
   return (
     <label className="space-y-2">
-      <span className="text-xs font-medium uppercase tracking-wide text-muted">
+      <span className="text-xs font-medium uppercase tracking-normal text-muted">
         {label}
       </span>
       <input
-        className="h-11 w-full rounded-md border border-border-subtle bg-surface-raised px-3 text-sm text-ink shadow-control transition hover:border-border focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
+        className="h-11 w-full rounded-sm border border-border-subtle bg-surface-raised px-3 text-sm text-ink shadow-control transition hover:border-border focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
         defaultValue={value ?? ""}
         name={name}
         type="date"
@@ -671,25 +711,16 @@ function FilterSelect({
 }) {
   return (
     <label className="space-y-2">
-      <span className="text-xs font-medium uppercase tracking-wide text-muted">
+      <span className="text-xs font-medium uppercase tracking-normal text-muted">
         {label}
       </span>
       <select
-        className="h-11 w-full rounded-md border border-border-subtle bg-surface-raised px-3 text-sm text-ink shadow-control transition hover:border-border focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
+        className="h-11 w-full rounded-sm border border-border-subtle bg-surface-raised px-3 text-sm text-ink shadow-control transition hover:border-border focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
         defaultValue={value ?? ""}
         name={name}
       >
         {children}
       </select>
     </label>
-  );
-}
-
-function Info({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md bg-surface-subtle px-3 py-2">
-      <dt className="text-xs font-semibold uppercase text-muted">{label}</dt>
-      <dd className="mt-1 text-ink">{value}</dd>
-    </div>
   );
 }
